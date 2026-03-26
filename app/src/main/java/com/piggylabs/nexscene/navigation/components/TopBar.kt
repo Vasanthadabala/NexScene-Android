@@ -24,14 +24,14 @@ import com.piggylabs.nexscene.ui.theme.appColors
 fun TopBar(name:String,navController: NavHostController) {
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = appColors().background
+            containerColor = appColors().neutral
         ),
         title = {
             Text(
                 text = name,
                 fontWeight = FontWeight.W600,
                 fontSize = 18.sp,
-                color = Color(0xFF27C152),
+                color = Color.White,
                 modifier = Modifier.padding(horizontal = 12.dp)
             )
         },
@@ -41,7 +41,7 @@ fun TopBar(name:String,navController: NavHostController) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "",
-                    tint = Color(0xFF27C152),
+                    tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )
             }

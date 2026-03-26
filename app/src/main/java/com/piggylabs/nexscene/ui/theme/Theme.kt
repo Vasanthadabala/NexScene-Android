@@ -6,23 +6,30 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    background = LightAppColors.background,
-    surface = LightAppColors.background,
-    onBackground = LightAppColors.text,
-    onSurface = LightAppColors.text,
-    primary = LightAppColors.green,
-    error = LightAppColors.red
+    background = DarkAppColors.neutral, //Main app background
+    surface = DarkAppColors.neutral, // components placed on background
+    onBackground = Color.White, //Content color on background
+    onSurface = Color.White, // Content color on surface
+    primary = DarkAppColors.primary, // Main brand color
+    secondary = DarkAppColors.secondary, // Supporting color
+    tertiary = DarkAppColors.tertiary, // Extra accent color
+    error = DarkAppColors.tertiary //Error state color
+
+
 )
 
 private val DarkColorScheme = darkColorScheme(
-    background = DarkAppColors.background,
-    surface = DarkAppColors.background,
-    onBackground = DarkAppColors.text,
-    onSurface = DarkAppColors.text,
-    primary = DarkAppColors.green,
-    error = DarkAppColors.red
+    background = DarkAppColors.neutral, //Main app background
+    surface = DarkAppColors.neutral, // components placed on background
+    onBackground = Color.White, //Content color on background
+    onSurface = Color.White, // Content color on surface
+    primary = DarkAppColors.primary, // Main brand color
+    secondary = DarkAppColors.secondary, // Supporting color
+    tertiary = DarkAppColors.tertiary, // Extra accent color
+    error = DarkAppColors.tertiary //Error state color
 )
 
 @Composable

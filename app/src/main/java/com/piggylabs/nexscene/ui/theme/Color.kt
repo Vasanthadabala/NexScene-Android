@@ -7,36 +7,21 @@ data class AppColors(
     val primary: Color,
     val secondary: Color,
     val tertiary: Color,
-    val neutral: Color,
-    val background: Color,
-    val container: Color,
-    val text: Color,
-    val red: Color,
-    val green: Color
+    val neutral: Color
 )
 
 val LightAppColors = AppColors(
-    primary = Color(0XFF8A2BE2),
-    secondary = Color(0XFFFFD700),
-    tertiary = Color(0XFF935400),
-    neutral = Color(0XFF0F0F0F),
-    background = Color.White,
-    container = Color.Gray.copy(alpha = 0.15f),
-    text = Color.Black,
-    red = Color.Red,
-    green = Color(0xFF27C152)
+    primary = Color(0XFFFFB800),
+    secondary = Color(0XFF927236),
+    tertiary = Color(0XFF00D7FE),
+    neutral = Color(0xFF3b3428)
 )
 
 val DarkAppColors = AppColors(
-    primary = Color(0XFF8A2BE2),
-    secondary = Color(0XFFFFD700),
-    tertiary = Color(0XFF935400),
-    neutral = Color(0XFF0F0F0F),
-    background = Color.Black,
-    container = Color.Gray.copy(alpha = 0.2f),
-    text = Color.White,
-    red = Color.Red,
-    green = Color(0xFF27C152)
+    primary = Color(0XFFFFB800),
+    secondary = Color(0XFF927236),
+    tertiary = Color(0XFF00D7FE),
+    neutral = Color(0xFF211B11)
 )
 
 val LocalAppColors = staticCompositionLocalOf { LightAppColors }
