@@ -172,13 +172,7 @@ private fun SearchScreenComponent(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF211B11),
-                        Color(0xFF362F24),
-                        Color(0xFF211B11)
-                    )
-                )
+                appColors().neutral
             )
     ) {
         if (query.isNotBlank()) {
@@ -422,10 +416,6 @@ private fun TrendingSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Trending Now", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Default.Apps, contentDescription = null, tint = Color(0xFFD0B6FF), modifier = Modifier.size(21.dp))
-                Icon(Icons.AutoMirrored.Filled.ViewList, contentDescription = null, tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(21.dp))
-            }
         }
 
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

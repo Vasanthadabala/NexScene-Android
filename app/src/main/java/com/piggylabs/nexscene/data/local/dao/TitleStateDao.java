@@ -25,9 +25,15 @@ public interface TitleStateDao {
     @Query("SELECT * FROM title_state WHERE watched = 1 ORDER BY updatedAt DESC")
     Flow<List<TitleStateEntity>> observeWatchedItems();
 
+    @Query("SELECT * FROM title_state")
+    List<TitleStateEntity> getAllStates();
+
     @Query("UPDATE title_state SET inWatchlist = :inWatchlist, updatedAt = :updatedAt WHERE itemId = :itemId AND mediaType = :mediaType")
     void setWatchlist(int itemId, String mediaType, boolean inWatchlist, long updatedAt);
 
     @Query("UPDATE title_state SET watched = :watched, updatedAt = :updatedAt WHERE itemId = :itemId AND mediaType = :mediaType")
     void setWatched(int itemId, String mediaType, boolean watched, long updatedAt);
+
+    @Query("DELETE FROM title_state")
+    void clearAllStates();
 }

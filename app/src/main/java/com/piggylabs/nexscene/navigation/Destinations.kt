@@ -59,3 +59,7 @@ object WishList: Destinations{
 object Settings: Destinations{
     override val route = "Settings"
 }
+
+object Profile: Destinations{
+    override val route = "Profile"
+}

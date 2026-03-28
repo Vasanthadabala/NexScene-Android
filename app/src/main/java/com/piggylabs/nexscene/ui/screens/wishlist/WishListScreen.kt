@@ -115,13 +115,7 @@ private fun WishListScreenComponent(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF211B11),
-                        Color(0xFF362F24),
-                        Color(0xFF211B11)
-                    )
-                )
+                appColors().neutral
             )
     ) {
         LazyColumn(

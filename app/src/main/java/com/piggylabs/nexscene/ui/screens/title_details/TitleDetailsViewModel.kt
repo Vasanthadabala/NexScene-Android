@@ -90,14 +90,19 @@ class TitleDetailsViewModel(
         val safeRating = rating.coerceIn(0, 10)
         viewModelScope.launch {
             val old = local.getState(itemId = itemId, mediaType = mediaType)
+            val markWatched = safeRating > 0 || old.watched
             local.upsert(
                 old.copy(
                     title = title.ifBlank { old.title },
                     posterUrl = posterUrl ?: old.posterUrl,
-                    userRating = safeRating
+                    userRating = safeRating,
+                    watched = markWatched
                 )
             )
-            _uiState.value = _uiState.value.copy(userRating = safeRating)
+            _uiState.value = _uiState.value.copy(
+                userRating = safeRating,
+                watched = markWatched
+            )
         }
     }
 

@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.google.firebase.auth.FirebaseAuth
 import com.piggylabs.nexscene.data.model.MovieDto
 import com.piggylabs.nexscene.data.model.TvDto
 import com.piggylabs.nexscene.navigation.TitleDetails
@@ -141,13 +143,7 @@ private fun HomeScreenComponent(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF211B11),
-                        Color(0xFF362F24),
-                        Color(0xFF211B11)
-                    )
-                )
+                appColors().neutral
             )
     ) {
         LazyColumn(
@@ -219,6 +215,7 @@ private fun PosterCard.toTitleDetailsRoute(): String {
 
 @Composable
 private fun TopHeader() {
+    val profilePhotoUrl = FirebaseAuth.getInstance().currentUser?.photoUrl?.toString()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -233,21 +230,36 @@ private fun TopHeader() {
                 .background(Color.Gray.copy(alpha = 0.3f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = "Menu",
-                modifier = Modifier
-                    .padding(4.dp)
-                    .size(24.dp)
-            )
+            if (!profilePhotoUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = profilePhotoUrl,
+                    contentDescription = "Profile",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Menu",
+                    modifier = Modifier
+                        .padding(4.dp)
+                        .size(24.dp)
+                )
+            }
         }
 
         Text(
             text = "NexScene",
-            color = Color(0XFFFFB800),
+            style = TextStyle(
+                brush = Brush.horizontalGradient(
+                    listOf(appColors().primary, Color(0xFFFFDEA8))
+                )
+            ),
+            fontSize = 24.sp,
             fontWeight = FontWeight.ExtraBold,
-            letterSpacing = 3.sp,
-            fontSize = 21.sp
+            letterSpacing = 6.sp
         )
 
         Box(
