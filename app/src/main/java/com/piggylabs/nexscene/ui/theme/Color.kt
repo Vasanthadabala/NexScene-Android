@@ -1,42 +1,36 @@
 package com.piggylabs.nexscene.ui.theme
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 
 data class AppColors(
     val primary: Color,
     val secondary: Color,
     val tertiary: Color,
     val neutral: Color,
-    val background: Color,
-    val container: Color,
-    val text: Color,
-    val red: Color,
-    val green: Color
+    val cards:Color
 )
 
 val LightAppColors = AppColors(
-    primary = Color(0XFF8A2BE2),
-    secondary = Color(0XFFFFD700),
-    tertiary = Color(0XFF935400),
-    neutral = Color(0XFF0F0F0F),
-    background = Color.White,
-    container = Color.Gray.copy(alpha = 0.15f),
-    text = Color.Black,
-    red = Color.Red,
-    green = Color(0xFF27C152)
+    primary = Color(0XFFFFB800),
+    secondary = Color(0XFF927236),
+    tertiary = Color(0XFF00D7FE),
+    neutral = Color(0xFF000000),
+    cards = Color.White.copy(alpha = 0.08f)
 )
 
 val DarkAppColors = AppColors(
-    primary = Color(0XFF8A2BE2),
-    secondary = Color(0XFFFFD700),
-    tertiary = Color(0XFF935400),
-    neutral = Color(0XFF0F0F0F),
-    background = Color.Black,
-    container = Color.Gray.copy(alpha = 0.2f),
-    text = Color.White,
-    red = Color.Red,
-    green = Color(0xFF27C152)
+    primary = Color(0XFFFFB800),
+    secondary = Color(0XFF927236),
+    tertiary = Color(0XFF00D7FE),
+    neutral = Color(0xFF000000),
+    cards = Color.White.copy(alpha = 0.08f)
 )
 
 val LocalAppColors = staticCompositionLocalOf { LightAppColors }

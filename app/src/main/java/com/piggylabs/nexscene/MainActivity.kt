@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
             NexSceneTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize()
-                        .background(appColors().background)
+                        .background(appColors().neutral)
                 ) {
                     AppNavigation(context = applicationContext)
                 }

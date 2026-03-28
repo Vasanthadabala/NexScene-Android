@@ -1,5 +1,7 @@
 package com.piggylabs.nexscene.navigation.components
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -12,6 +14,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,16 +29,29 @@ fun BottomBar(navController: NavHostController){
     var selectedItemIndex by rememberSaveable { mutableIntStateOf(0) }
     val currentRoute = navController.currentBackStackEntry?.destination?.route ?: ""
     selectedItemIndex = bottomBarItems.indexOfFirst { it.route == currentRoute }
+    val barShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    val barSurfaceColor = appColors().neutral
 
     Card(
-        elevation = CardDefaults.cardElevation(4.dp),
+        modifier = Modifier
+            .clip(barShape)
+            .border(
+                width = 1.dp,
+                Color.Gray.copy(alpha = 0.5f),
+                barShape
+            ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 8.dp
+        ),
         colors = CardDefaults.cardColors(
-            containerColor = appColors().background
-        )
+            containerColor = barSurfaceColor
+        ),
+        shape = barShape
     ) {
         NavigationBar(
             tonalElevation = 0.dp,
-            containerColor = appColors().background
+            containerColor = Color.Transparent,
+            modifier = Modifier.clip(barShape)
         ) {
             bottomBarItems.forEachIndexed { index, item ->
                 NavigationBarItem(
@@ -62,10 +79,10 @@ fun BottomBar(navController: NavHostController){
                         )
                     },
                     colors = NavigationBarItemDefaults.colors(
-                        indicatorColor = Color(0xFF38b000).copy(alpha = 0.25f),
-                        selectedIconColor = appColors().text,
+                        indicatorColor = appColors().primary.copy(alpha = 0.25f),
+                        selectedIconColor = appColors().primary,
                         unselectedIconColor = Color.DarkGray,
-                        selectedTextColor = appColors().text,
+                        selectedTextColor = appColors().primary,
                         unselectedTextColor = Color.DarkGray,
 
                         ),

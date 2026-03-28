@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "488196385649",
+    "project_id": "nexscene",
+    "storage_bucket": "nexscene.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:488196385649:android:28b6cc9b92cb6dc06f24d0",
+        "android_client_info": {
+          "package_name": "com.piggylabs.nexscene"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "488196385649-q8m31v368l8g9hlvebon9krope7k6323.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.piggylabs.nexscene",
+            "certificate_hash": "ab4163400e495eff5558095a1877c98da9abccdf"
+          }
+        },
+        {
+          "client_id": "488196385649-2ltarnsthdatrt7m6vsh10aom3cffpoq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB_q7_rjL9OJB4AGykupyEypME8dnfET24"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "488196385649-2ltarnsthdatrt7m6vsh10aom3cffpoq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
