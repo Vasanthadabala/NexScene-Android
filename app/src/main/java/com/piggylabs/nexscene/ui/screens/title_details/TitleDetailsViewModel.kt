@@ -6,9 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.piggylabs.nexscene.data.local.TitleStateLocalDataSource
 import com.piggylabs.nexscene.data.local.TitleUserState
 import com.piggylabs.nexscene.data.api.CastApiResponse
+import com.piggylabs.nexscene.data.api.ProvidersApiResponse
 import com.piggylabs.nexscene.data.api.SimilarApiResponse
+import com.piggylabs.nexscene.data.api.TrailerApiResponse
 import com.piggylabs.nexscene.data.model.CastPerson
 import com.piggylabs.nexscene.data.model.TitleCardDto
+import com.piggylabs.nexscene.data.model.TitleDetailsDto
+import com.piggylabs.nexscene.data.model.TitleWatchProvidersDto
+import com.piggylabs.nexscene.data.api.TitleDetailsApiResponse
 import com.piggylabs.nexscene.data.repository.MovieRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +25,10 @@ data class TitleDetailsUiState(
     val isLoading: Boolean = false,
     val cast: List<CastPerson> = emptyList(),
     val similar: List<TitleCardDto> = emptyList(),
+    val details: TitleDetailsDto? = null,
+    val providers: TitleWatchProvidersDto? = null,
+    val trailerVideoId: String? = null,
+    val trailerUrl: String? = null,
     val userRating: Int = 0,
     val inWatchlist: Boolean = false,
     val watched: Boolean = false,
@@ -40,7 +49,13 @@ class TitleDetailsViewModel(
         }
     }
 
-    fun load(itemId: Int, mediaType: String, title: String, posterUrl: String?) {
+    fun load(
+        itemId: Int,
+        mediaType: String,
+        title: String,
+        posterUrl: String?,
+        countryCode: String
+    ) {
         if (itemId == 0) return
         val local = localDataSource ?: return
         viewModelScope.launch {
@@ -48,20 +63,44 @@ class TitleDetailsViewModel(
 
             val castDeferred = async { repository.getLeadingCast(itemId = itemId, mediaType = mediaType) }
             val similarDeferred = async { repository.getSimilarTitles(itemId = itemId, mediaType = mediaType) }
+            val detailsDeferred = async { repository.getTitleDetails(itemId = itemId, mediaType = mediaType) }
+            val trailerDeferred = async { repository.getTrailer(itemId = itemId, mediaType = mediaType) }
+            val providersDeferred = async {
+                repository.getWatchProviders(
+                    itemId = itemId,
+                    mediaType = mediaType,
+                    countryCode = countryCode
+                )
+            }
             val localDeferred = async { local.getState(itemId = itemId, mediaType = mediaType) }
 
             val castResponse = castDeferred.await()
             val similarResponse = similarDeferred.await()
+            val detailsResponse = detailsDeferred.await()
+            val trailerResponse = trailerDeferred.await()
+            val providersResponse = providersDeferred.await()
             val savedState = localDeferred.await()
 
             val cast = if (castResponse is CastApiResponse.Success) castResponse.data else emptyList()
             val similar = if (similarResponse is SimilarApiResponse.Success) similarResponse.data else emptyList()
+            val detailsData = (detailsResponse as? TitleDetailsApiResponse.Success)?.data
+            val providersData = (providersResponse as? ProvidersApiResponse.Success)?.data
+            val trailerVideoId = (trailerResponse as? TrailerApiResponse.Success)?.videoId
+            val trailerUrl = (trailerResponse as? TrailerApiResponse.Success)?.youtubeUrl
 
             val errorMessage = when {
+                detailsResponse is TitleDetailsApiResponse.Error ->
+                    detailsResponse.message
+                castResponse is CastApiResponse.Error &&
+                    similarResponse is SimilarApiResponse.Error &&
+                    trailerResponse is TrailerApiResponse.Error ->
+                    "${castResponse.message}\n${similarResponse.message}\n${trailerResponse.message}"
                 castResponse is CastApiResponse.Error && similarResponse is SimilarApiResponse.Error ->
                     "${castResponse.message}\n${similarResponse.message}"
                 castResponse is CastApiResponse.Error -> castResponse.message
                 similarResponse is SimilarApiResponse.Error -> similarResponse.message
+                trailerResponse is TrailerApiResponse.Error -> trailerResponse.message
+                providersResponse is ProvidersApiResponse.Error -> providersResponse.message
                 else -> null
             }
 
@@ -69,6 +108,10 @@ class TitleDetailsViewModel(
                 isLoading = false,
                 cast = cast,
                 similar = similar,
+                details = detailsData,
+                providers = providersData,
+                trailerVideoId = trailerVideoId,
+                trailerUrl = trailerUrl,
                 userRating = savedState.userRating,
                 inWatchlist = savedState.inWatchlist,
                 watched = savedState.watched,

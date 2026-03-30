@@ -346,8 +346,7 @@ fun SettingsScreenComponent(navController: NavHostController) {
                     modifier = Modifier
                         .size(86.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF2E5E95))
-                        .border(2.dp, AccentYellow, RoundedCornerShape(14.dp)),
+                        .background(Color(0xFF2E5E95)),
                     contentAlignment = Alignment.BottomEnd
                 ) {
                     if (!userPhotoUrl.isNullOrBlank()) {
@@ -399,14 +398,14 @@ fun SettingsScreenComponent(navController: NavHostController) {
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Premium Member since",
-                        color = SoftText,
+                        text = "Premium Membership",
+                        color = appColors().secondary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "2022",
-                        color = SoftText,
+                        text = "No Adds",
+                        color = appColors().secondary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -1109,7 +1108,7 @@ private fun SettingsRow(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = it,
-                    color = SoftText,
+                    color = Color.Gray,
                     fontSize = 11.sp,
                     lineHeight = 14.sp
                 )

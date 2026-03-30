@@ -68,19 +68,11 @@ data class TrendCard(
     val posterUrl: String? = null
 )
 
-private val fallbackRecentItems = listOf("Interstellar", "Dune: Part Two")
-
 private val genres = listOf(
     GenreCard("ACTION", "https://image.tmdb.org/t/p/w500/NNxYkU70HPurnNCSiCjYAmacwm.jpg"),  // Mission: Impossible
     GenreCard("COMEDY", "https://image.tmdb.org/t/p/w500/hlK0e0wAQ3VLuJcsfIYPvb4JVud.jpg"),  // Zootopia-like comedic vibe
     GenreCard("HORROR", "https://image.tmdb.org/t/p/w500/9E2y5Q7WlCVNEhP5GiVTjhEhx1o.jpg"),  // It
     GenreCard("ROMANCE", "https://image.tmdb.org/t/p/w500/9xjZS2rlVxm8SFx8kPC3aIGCOYQ.jpg")   // Titanic
-)
-
-private val fallbackTrends = listOf(
-    TrendCard(title = "THE VOID BEYOND", meta = "SCI-FI • 2024", rating = "8.9", gradient = listOf(Color(0xFF1398A8), Color(0xFF53D5D4), Color(0xFF173943)), posterUrl = "https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg"),
-    TrendCard(title = "NOIR CITY", meta = "THRILLER • 2023", rating = "7.4", gradient = listOf(Color(0xFFE8E8E8), Color(0xFF527B8F), Color(0xFF101E2B)), posterUrl = "https://image.tmdb.org/t/p/w500/wSzPMo1tsvM6P7q5uIQhQxA4N8a.jpg"),
-    TrendCard(title = "THE SUMMIT", meta = "DOCUMENTARY • 2023", rating = "8.1", gradient = listOf(Color(0xFFDADADA), Color(0xFF9EC2CC), Color(0xFF1D4250)), posterUrl = "https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg")
 )
 
 private val trendGradients = listOf(
@@ -96,31 +88,27 @@ fun SearchScreen(navController: NavHostController) {
     val viewModel: SearchViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
 
-    val recentItems = if (state.results.isEmpty()) fallbackRecentItems else state.results.take(5).map { it.title }
-    val trends = if (state.results.isEmpty()) {
-        if (state.trending.isEmpty()) {
-            fallbackTrends
-        } else {
-            state.trending.take(10).mapIndexed { index, item ->
-                TrendCard(
-                    id = item.id,
-                    mediaType = item.mediaType,
-                    title = item.title,
-                    meta = "${item.subtitle.uppercase()} • TMDB",
-                    rating = item.rating,
-                    gradient = trendGradients[index % trendGradients.size],
-                    overview = item.overview,
-                    posterUrl = item.posterUrl
-                )
-            }
-        }
-    } else {
+    val recentItems = state.results.take(5).map { it.title }
+    val trends = if (state.results.isNotEmpty()) {
         state.results.take(10).mapIndexed { index, item ->
             TrendCard(
                 id = item.id,
                 mediaType = item.mediaType,
                 title = item.title,
-                meta = "${item.subtitle.uppercase()} • TMDB",
+                meta = "${item.subtitle.uppercase()}",
+                rating = item.rating,
+                gradient = trendGradients[index % trendGradients.size],
+                overview = item.overview,
+                posterUrl = item.posterUrl
+            )
+        }
+    } else {
+        state.trending.take(10).mapIndexed { index, item ->
+            TrendCard(
+                id = item.id,
+                mediaType = item.mediaType,
+                title = item.title,
+                meta = "${item.subtitle.uppercase()}",
                 rating = item.rating,
                 gradient = trendGradients[index % trendGradients.size],
                 overview = item.overview,
@@ -202,9 +190,13 @@ private fun SearchScreenComponent(
             if (error != null) {
                 item { Text(error, color = Color(0xFFFF7A7A), fontSize = 13.sp) }
             }
-            item { RecentlySearchedSection(recentItems) }
+            if (recentItems.isNotEmpty()) {
+                item { RecentlySearchedSection(recentItems) }
+            }
             item { ExploreGenresSection() }
-            item { TrendingSection(navController = navController, trends = trends) }
+            if (trends.isNotEmpty()) {
+                item { TrendingSection(navController = navController, trends = trends) }
+            }
         }
     }
 }
@@ -263,7 +255,7 @@ private fun SearchResultsGrid(
                     }
                 }
                 Text(item.title.limitChars(18), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
-                Text("${item.subtitle} • TMDB", color = Color.White.copy(alpha = 0.82f), fontSize = 12.sp)
+                Text("${item.subtitle}", color = Color.White.copy(alpha = 0.82f), fontSize = 12.sp)
             }
         }
     }

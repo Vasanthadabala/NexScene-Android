@@ -1,5 +1,9 @@
 package com.piggylabs.nexscene.ui.screens.title_details
 
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
+import java.util.Locale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,13 +24,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -37,7 +36,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +43,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,30 +52,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.piggylabs.nexscene.data.model.CastPerson
+import com.piggylabs.nexscene.data.model.ProviderInfoDto
 import com.piggylabs.nexscene.data.model.TitleCardDto
+import com.piggylabs.nexscene.data.model.TitleDetailsDto
+import com.piggylabs.nexscene.data.model.TitleWatchProvidersDto
 import com.piggylabs.nexscene.navigation.TitleDetails
-import com.piggylabs.nexscene.navigation.components.BottomBar
 import com.piggylabs.nexscene.navigation.components.TopBar
 import com.piggylabs.nexscene.ui.screens.home.limitChars
 import com.piggylabs.nexscene.ui.theme.AppColors
-import com.piggylabs.nexscene.ui.theme.LocalAppColors
 import com.piggylabs.nexscene.ui.theme.appColors
-
-private data class CastMember(val name: String, val role: String)
-private data class SimilarTitle(val title: String, val genre: String, val rating: String, val colors: List<Color>)
-
-private val cast = listOf(
-    CastMember("Cillian Murphy", "J. Robert Oppenheimer"),
-    CastMember("Emily Blunt", "Kitty Oppenheimer"),
-    CastMember("Matt Damon", "Leslie Groves")
-)
-
-private val similarTitles = listOf(
-    SimilarTitle("Interstellar", "Sci-Fi, Adventure", "8.7", listOf(Color(0xFF143746), Color(0xFF2C6A7A), Color(0xFFF0CE8E))),
-    SimilarTitle("The Prestige", "Drama, Mystery", "8.5", listOf(Color(0xFF153B45), Color(0xFF204E56), Color(0xFF2D2F38))),
-    SimilarTitle("Dunkirk", "Action, History", "7.8", listOf(Color(0xFF245C60), Color(0xFF5BA3A2), Color(0xFFD9DCA8))),
-    SimilarTitle("Inception", "Sci-Fi, Action", "8.8", listOf(Color(0xFF214A5A), Color(0xFF487D8C), Color(0xFFD9D2A9)))
-)
 
 data class TitleItemDetails(
     val id: Int = 0,
@@ -99,35 +83,20 @@ fun TitleDetailsScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(details.id, details.mediaType) {
+        val countryCode = Locale.getDefault().country
+        Log.d("Country_code", countryCode)
         viewModel.initLocal(context)
         viewModel.load(
             itemId = details.id,
             mediaType = details.mediaType,
             title = details.title,
-            posterUrl = details.posterUrl
+            posterUrl = details.posterUrl,
+            countryCode = countryCode.ifBlank { "US" }
         )
     }
 
-    val castData = if (uiState.cast.isEmpty()) {
-        cast.map { CastPerson(id = 0, name = it.name, role = it.role, profileUrl = null) }
-    } else {
-        uiState.cast
-    }
-    val similarData = if (uiState.similar.isEmpty()) {
-        similarTitles.map {
-            TitleCardDto(
-                id = 0,
-                title = it.title,
-                subtitle = it.genre,
-                rating = it.rating,
-                posterUrl = null,
-                overview = "",
-                mediaType = details.mediaType.ifBlank { "movie" }
-            )
-        }
-    } else {
-        uiState.similar
-    }
+    val castData = uiState.cast
+    val similarData = uiState.similar
 
     Scaffold(
         topBar = { TopBar(name = "back", navController = navController) }
@@ -141,8 +110,12 @@ fun TitleDetailsScreen(
             TitleDetailsScreenComponent(
                 navController = navController,
                 details = details,
+                titleDetails = uiState.details,
+                providers = uiState.providers,
                 castData = castData,
                 similarData = similarData,
+                trailerVideoId = uiState.trailerVideoId,
+                trailerUrl = uiState.trailerUrl,
                 userRating = uiState.userRating,
                 inWatchlist = uiState.inWatchlist,
                 watched = uiState.watched,
@@ -181,8 +154,12 @@ fun TitleDetailsScreen(
 fun TitleDetailsScreenComponent(
     navController: NavHostController,
     details: TitleItemDetails,
+    titleDetails: TitleDetailsDto?,
+    providers: TitleWatchProvidersDto?,
     castData: List<CastPerson>,
     similarData: List<TitleCardDto>,
+    trailerVideoId: String?,
+    trailerUrl: String?,
     userRating: Int,
     inWatchlist: Boolean,
     watched: Boolean,
@@ -203,7 +180,12 @@ fun TitleDetailsScreenComponent(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                HeroSection( details = details)
+                HeroSection(
+                    details = details,
+                    titleDetails = titleDetails,
+                    trailerVideoId = trailerVideoId,
+                    trailerUrl = trailerUrl
+                )
             }
 
             item {
@@ -219,7 +201,10 @@ fun TitleDetailsScreenComponent(
             }
 
             item {
-                PlatformSection()
+                PlatformSection(
+                    providers = providers,
+                    title = titleDetails?.title?.ifBlank { details.title } ?: details.title
+                )
             }
 
             item {
@@ -238,8 +223,24 @@ fun TitleDetailsScreenComponent(
 
 @Composable
 private fun HeroSection(
-    details: TitleItemDetails
+    details: TitleItemDetails,
+    titleDetails: TitleDetailsDto?,
+    trailerVideoId: String?,
+    trailerUrl: String?
 ) {
+    val context = LocalContext.current
+    val displayTitle = titleDetails?.title?.ifBlank { details.title } ?: details.title
+    val displayPosterUrl = titleDetails?.posterUrl ?: details.posterUrl
+    val displayRating = titleDetails?.rating?.ifBlank { details.rating } ?: details.rating
+    val displayOverview = titleDetails?.overview?.ifBlank { details.overview } ?: details.overview
+    val displayTagline = titleDetails?.tagline.orEmpty()
+    val releaseDate = titleDetails?.releaseDate.orEmpty()
+    val status = titleDetails?.status.orEmpty()
+    val runtimeLabel = titleDetails?.runtimeLabel.orEmpty()
+    val language = titleDetails?.language.orEmpty()
+    val genres = titleDetails?.genres?.joinToString(", ").orEmpty()
+    val countries = titleDetails?.countries?.joinToString(", ").orEmpty()
+
     Column(
         modifier = Modifier
             .padding(vertical = 4.dp, horizontal = 6.dp)
@@ -251,10 +252,10 @@ private fun HeroSection(
                 .clip(RoundedCornerShape(16.dp))
                 .padding(0.dp)
         ) {
-            if (!details.posterUrl.isNullOrBlank()) {
+            if (!displayPosterUrl.isNullOrBlank()) {
                 AsyncImage(
-                    model = details.posterUrl,
-                    contentDescription = details.title,
+                    model = displayPosterUrl,
+                    contentDescription = displayTitle,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -307,24 +308,45 @@ private fun HeroSection(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                Text(
-                    text = details.title.ifBlank { "OPPENHEIMER" },
-                    color = Color.White,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 32.sp,
+                    Text(
+                        text = displayTitle.ifBlank { "OPPENHEIMER" },
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 32.sp,
                     lineHeight = 32.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (displayTagline.isNotBlank()) {
+                    Text(
+                        text = "\"$displayTagline\"",
+                        color = Color.White.copy(alpha = 0.88f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
             Box(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .size(72.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.9f)),
+                    .background(Color.White.copy(alpha = 0.9f))
+                    .clickable {
+                        openTrailerInYoutube(
+                            context = context,
+                            trailerVideoId = trailerVideoId,
+                            trailerUrl = trailerUrl
+                        )
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -335,6 +357,8 @@ private fun HeroSection(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         Column(
             modifier = Modifier
@@ -373,7 +397,7 @@ private fun HeroSection(
                         )
                         Spacer(modifier = Modifier.size(4.dp))
                         Text(
-                            details.rating.ifBlank { "8.4" },
+                            displayRating.ifBlank { "8.4" },
                             color = Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
@@ -384,6 +408,43 @@ private fun HeroSection(
 
             Spacer(modifier = Modifier.height(18.dp))
 
+            if (
+                releaseDate.isNotBlank() ||
+                status.isNotBlank() ||
+                runtimeLabel.isNotBlank() ||
+                language.isNotBlank() ||
+                genres.isNotBlank() ||
+                countries.isNotBlank()
+            ) {
+                Text(
+                    "DETAILS",
+                    color = appColors().primary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    letterSpacing = 1.2.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                if (releaseDate.isNotBlank()) {
+                    Text("Release: $releaseDate", color = Color.White.copy(alpha = 0.86f), fontSize = 13.sp)
+                }
+                if (status.isNotBlank()) {
+                    Text("Status: $status", color = Color.White.copy(alpha = 0.86f), fontSize = 13.sp)
+                }
+                if (runtimeLabel.isNotBlank()) {
+                    Text("Runtime: $runtimeLabel", color = Color.White.copy(alpha = 0.86f), fontSize = 13.sp)
+                }
+                if (language.isNotBlank()) {
+                    Text("Language: $language", color = Color.White.copy(alpha = 0.86f), fontSize = 13.sp)
+                }
+                if (genres.isNotBlank()) {
+                    Text("Genres: $genres", color = Color.White.copy(alpha = 0.86f), fontSize = 13.sp)
+                }
+                if (countries.isNotBlank()) {
+                    Text("Countries: $countries", color = Color.White.copy(alpha = 0.86f), fontSize = 13.sp)
+                }
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
             Text(
                 "STORYLINE",
                 color = appColors().primary,
@@ -393,8 +454,8 @@ private fun HeroSection(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                details.overview.ifBlank {
-                    "The story of American scientist J.\nRobert Oppenheimer and his role in the\ndevelopment of the atomic bomb."
+                displayOverview.ifBlank {
+                    "Overview not available."
                 },
                 color = Color.White.copy(alpha = 0.9f),
                 fontSize = 14.sp,
@@ -408,6 +469,25 @@ private fun HeroSection(
                 fontSize = 17.sp
             )
         }
+    }
+}
+
+private fun openTrailerInYoutube(
+    context: android.content.Context,
+    trailerVideoId: String?,
+    trailerUrl: String?
+) {
+    val fallbackUrl = trailerUrl ?: trailerVideoId?.let { "https://www.youtube.com/watch?v=$it" } ?: return
+    val appUri = trailerVideoId?.let { Uri.parse("vnd.youtube:$it") }
+
+    try {
+        if (appUri != null) {
+            context.startActivity(Intent(Intent.ACTION_VIEW, appUri))
+        } else {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
+        }
+    } catch (_: Exception) {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
     }
 }
 
@@ -515,41 +595,233 @@ private fun ActionButton(
 }
 
 @Composable
-private fun PlatformSection() {
+private fun PlatformSection(
+    providers: TitleWatchProvidersDto?,
+    title: String
+) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier.padding(horizontal = 14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text("AVAILABLE ON", color = appColors().primary, fontWeight = FontWeight.Bold, fontSize = 28.sp, letterSpacing = 1.5.sp)
-        PlatformPill("Netflix", "STREAM ON", Color(0xFFE50914))
-        PlatformPill("Prime Video", "BUY/RENT", Color(0xFF4C8DF4))
-        PlatformPill("Disney+", "WATCH ON", Color(0xFF4B50D5))
+
+        if (providers == null) {
+            Text(
+                "Provider information unavailable.",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 13.sp
+            )
+            return
+        }
+
+        if (providers.watch.isNotEmpty()) {
+            Text("WATCH (${providers.countryCode})", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, letterSpacing = 1.sp)
+            ProviderList(
+                providers = providers.watch,
+                onProviderTap = { provider ->
+                    openProviderSearchOrFallback(
+                        context = context,
+                        providerName = provider.name,
+                        title = title
+                    )
+                }
+            )
+        }
+        if (providers.buy.isNotEmpty()) {
+            Text("BUY", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, letterSpacing = 1.sp)
+            ProviderList(
+                providers = providers.buy,
+                onProviderTap = { provider ->
+                    openProviderSearchOrFallback(
+                        context = context,
+                        providerName = provider.name,
+                        title = title
+                    )
+                }
+            )
+        }
+        if (providers.rent.isNotEmpty()) {
+            Text("RENT", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, letterSpacing = 1.sp)
+            ProviderList(
+                providers = providers.rent,
+                onProviderTap = { provider ->
+                    openProviderSearchOrFallback(
+                        context = context,
+                        providerName = provider.name,
+                        title = title
+                    )
+                }
+            )
+        }
+
+        if (providers.watch.isEmpty() && providers.buy.isEmpty() && providers.rent.isEmpty()) {
+            Text(
+                "No providers available for ${providers.countryCode}.",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 13.sp
+            )
+        }
     }
 }
 
 @Composable
-private fun PlatformPill(name: String, sub: String, color: Color) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.copy(alpha = 0.05f))
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+private fun ProviderList(
+    providers: List<ProviderInfoDto>,
+    onProviderTap: (ProviderInfoDto) -> Unit
+) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(providers, key = { it.id }) { provider ->
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White.copy(alpha = 0.05f))
+                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                    .clickable { onProviderTap(provider) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ProviderLogo(provider)
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(provider.name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            }
+        }
+    }
+}
+
+private fun openProviderSearchOrFallback(
+    context: android.content.Context,
+    providerName: String,
+    title: String
+) {
+    val normalized = providerName.lowercase()
+    val query = Uri.encode(title)
+    val packages = providerPackageCandidates(normalized)
+    val deepLinks = providerDeepLinks(normalized, query)
+    val webLinks = providerWebLinks(normalized, query)
+
+    if (tryOpenDeepLinksInApp(context, deepLinks, packages)) return
+    if (tryOpenProviderApp(context, packages)) return
+    tryOpenInBrowser(context, webLinks)
+}
+
+private fun providerPackageCandidates(normalizedProviderName: String): List<String> {
+    return when {
+        normalizedProviderName.contains("netflix") -> listOf("com.netflix.mediaclient")
+        normalizedProviderName.contains("apple tv") || normalizedProviderName.contains("apple tv store") ->
+            listOf("com.apple.atve.androidtv.appletv")
+        normalizedProviderName.contains("prime video") || normalizedProviderName.contains("amazon prime video") ->
+            listOf("com.amazon.avod.thirdpartyclient")
+        normalizedProviderName.contains("hotstar") || normalizedProviderName.contains("jiohotstar") ->
+            listOf("com.jiohotstar", "in.startv.hotstar")
+        else -> emptyList()
+    }
+}
+
+private fun providerDeepLinks(normalizedProviderName: String, query: String): List<String> {
+    return when {
+        normalizedProviderName.contains("netflix") ->
+            listOf("nflx://www.netflix.com/search?q=$query")
+        normalizedProviderName.contains("apple tv") || normalizedProviderName.contains("apple tv store") ->
+            listOf("https://tv.apple.com/search?term=$query")
+        normalizedProviderName.contains("prime video") || normalizedProviderName.contains("amazon prime video") ->
+            listOf("primevideo://search/$query")
+        normalizedProviderName.contains("hotstar") || normalizedProviderName.contains("jiohotstar") ->
+            listOf("hotstar://search?q=$query")
+        else -> emptyList()
+    }
+}
+
+private fun providerWebLinks(normalizedProviderName: String, query: String): List<String> {
+    return when {
+        normalizedProviderName.contains("netflix") ->
+            listOf("https://www.netflix.com/search?q=$query")
+        normalizedProviderName.contains("apple tv") || normalizedProviderName.contains("apple tv store") ->
+            listOf("https://tv.apple.com/search?term=$query")
+        normalizedProviderName.contains("prime video") || normalizedProviderName.contains("amazon prime video") ->
+            listOf("https://www.primevideo.com/search/ref=atv_nb_sr?phrase=$query")
+        normalizedProviderName.contains("hotstar") || normalizedProviderName.contains("jiohotstar") ->
+            listOf("https://www.hotstar.com/in/search?q=$query")
+        else -> emptyList()
+    }
+}
+
+private fun tryOpenDeepLinksInApp(
+    context: android.content.Context,
+    links: List<String>,
+    packages: List<String>
+): Boolean {
+    for (link in links) {
+        val uri = Uri.parse(link)
+        for (packageName in packages) {
+            try {
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, uri).setPackage(packageName)
+                )
+                return true
+            } catch (_: Exception) {
+                // try next package/url
+            }
+        }
+    }
+    return false
+}
+
+private fun tryOpenProviderApp(
+    context: android.content.Context,
+    packages: List<String>
+): Boolean {
+    val packageManager = context.packageManager
+    return packages.any { packageName ->
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        if (launchIntent != null) {
+            context.startActivity(launchIntent)
+            true
+        } else {
+            false
+        }
+    }
+}
+
+private fun tryOpenInBrowser(
+    context: android.content.Context,
+    links: List<String>
+): Boolean {
+    return links.any { link ->
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+}
+
+@Composable
+private fun ProviderLogo(provider: ProviderInfoDto) {
+    if (!provider.logoUrl.isNullOrBlank()) {
+        AsyncImage(
+            model = provider.logoUrl,
+            contentDescription = provider.name,
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape),
+            contentScale = ContentScale.Crop
+        )
+    } else {
         Box(
             modifier = Modifier
                 .size(22.dp)
                 .clip(CircleShape)
-                .background(color),
+                .background(Color(0xFF5A6270)),
             contentAlignment = Alignment.Center
         ) {
-            Text(name.first().toString(), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        }
-        Spacer(modifier = Modifier.size(8.dp))
-        Column {
-            Text(sub, color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, letterSpacing = 0.6.sp)
-            Text(name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(
+                provider.name.firstOrNull()?.uppercase() ?: "?",
+                color = Color.White,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -566,34 +838,43 @@ private fun CastSection(castData: List<CastPerson>) {
             Text("See All", color = Color.White.copy(alpha = 0.86f), fontSize = 14.sp)
         }
 
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(castData) { member ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (member.profileUrl != null) {
-                        AsyncImage(
-                            model = member.profileUrl,
-                            contentDescription = member.name,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(126.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(126.dp)
-                                .clip(CircleShape)
-                                .background(Brush.linearGradient(listOf(Color(0xFF1B1E26), Color(0xFF5D626D), Color(0xFFE8E8E8))))
-                                .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                        )
+        if (castData.isEmpty()) {
+            Text(
+                "Cast information unavailable.",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        } else {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                items(castData) { member ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (member.profileUrl != null) {
+                            AsyncImage(
+                                model = member.profileUrl,
+                                contentDescription = member.name,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(126.dp)
+                                    .clip(CircleShape)
+                                    .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(126.dp)
+                                    .clip(CircleShape)
+                                    .background(Brush.linearGradient(listOf(Color(0xFF1B1E26), Color(0xFF5D626D), Color(0xFFE8E8E8))))
+                                    .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(member.name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text(member.role, color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp)
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(member.name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Text(member.role, color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp)
                 }
             }
         }
@@ -615,6 +896,16 @@ private fun SimilarTitlesSection(
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
+        if (similarData.isEmpty()) {
+            Text(
+                "No similar titles available.",
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            return
+        }
+
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -625,19 +916,17 @@ private fun SimilarTitlesSection(
                         modifier = Modifier
                             .size(width = 150.dp, height = 220.dp)
                             .clickable {
-                                if (title.id != 0 && title.mediaType.isNotBlank()) {
-                                    navController.navigate(
-                                        TitleDetails.createRoute(
-                                            title = title.title,
-                                            subtitle = title.subtitle,
-                                            rating = title.rating,
-                                            overview = title.overview,
-                                            posterUrl = title.posterUrl,
-                                            mediaType = title.mediaType,
-                                            itemId = title.id
-                                        )
+                                navController.navigate(
+                                    TitleDetails.createRoute(
+                                        title = title.title,
+                                        subtitle = title.subtitle,
+                                        rating = title.rating,
+                                        overview = title.overview,
+                                        posterUrl = title.posterUrl,
+                                        mediaType = title.mediaType.ifBlank { "movie" },
+                                        itemId = title.id
                                     )
-                                }
+                                )
                             }
                             .clip(RoundedCornerShape(16.dp))
                             .border(0.1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))

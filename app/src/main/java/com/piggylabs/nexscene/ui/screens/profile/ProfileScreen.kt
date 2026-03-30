@@ -137,8 +137,7 @@ fun ProfileScreenComponent(navController: NavHostController) {
                     modifier = Modifier
                         .size(112.dp)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(Color(0xFF132037))
-                        .border(1.dp, Color(0xFF5D4A19), RoundedCornerShape(2.dp)),
+                        .background(Color(0xFF132037)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!userPhotoUrl.isNullOrBlank()) {
@@ -148,14 +147,14 @@ fun ProfileScreenComponent(navController: NavHostController) {
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(RoundedCornerShape(2.dp))
+                                .clip(RoundedCornerShape(16.dp))
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = "Avatar",
                             tint = Color(0xFFE2EDF8),
-                            modifier = Modifier.size(56.dp)
+                            modifier = Modifier.size(48.dp)
                         )
                     }
                 }
@@ -174,7 +173,7 @@ fun ProfileScreenComponent(navController: NavHostController) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "Track ratings, watchlist, and watched progress",
-                        color = WarmText,
+                        color = appColors().secondary,
                         fontSize = 12.sp,
                         letterSpacing = 0.6.sp
                     )
@@ -242,12 +241,12 @@ private fun StatCard(title: String, value: String, icon: androidx.compose.ui.gra
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
     ) {
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp)) {
-            Text(text = title, color = WarmText, fontSize = 12.sp, letterSpacing = 1.sp)
+            Text(text = title, color = Color.White, fontSize = 12.sp, letterSpacing = 1.sp)
             Spacer(modifier = Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = value, color = Color(0xFFFFE2A6), fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
+                Text(text = value, color = appColors().secondary, fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
                 Spacer(modifier = Modifier.width(8.dp))
-                Icon(imageVector = icon, contentDescription = null, tint = AccentYellow, modifier = Modifier.size(18.dp))
+                Icon(imageVector = icon, contentDescription = null, tint = appColors().primary, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -316,7 +315,7 @@ private fun EmptyStateCard(message: String) {
     ) {
         Text(
             text = message,
-            color = WarmText,
+            color = Color.Gray,
             fontSize = 13.sp,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
         )

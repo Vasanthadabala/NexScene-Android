@@ -16,7 +16,14 @@ val localProperties = Properties().apply {
     }
 }
 
-val tmdbApiKey = (localProperties.getProperty("TMDB_API_KEY") ?: "").replace("\"", "\\\"")
+val tmdbApiKey = (
+    localProperties.getProperty("TMDB_API_KEY")
+        ?: System.getenv("TMDB_API_KEY")
+        ?: ""
+    )
+    .trim()
+    .removeSurrounding("\"")
+    .replace("\"", "\\\"")
 
 android {
     namespace = "com.piggylabs.nexscene"

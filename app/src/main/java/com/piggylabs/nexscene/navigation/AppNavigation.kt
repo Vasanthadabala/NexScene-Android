@@ -5,6 +5,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
+import com.piggylabs.nexscene.navigation.graphs.exploreScreenGraph
 import com.piggylabs.nexscene.navigation.graphs.homeScreenGraph
 import com.piggylabs.nexscene.navigation.graphs.onBoardingScreenGraph
 import com.piggylabs.nexscene.navigation.graphs.profileScreenGraph
@@ -24,6 +25,7 @@ fun AppNavigation(context: Context){
 
         homeScreenGraph(navController = navController)
         titleDetailsScreenGraph(navController = navController)
+        exploreScreenGraph(navController = navController)
 
         searchScreenGraph(navController = navController)
 

@@ -1,5 +1,8 @@
 package com.piggylabs.nexscene.ui.screens.home
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -33,6 +37,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,18 +72,6 @@ data class PosterCard(
     val mediaType: String = "movie"
 )
 
-private val fallbackMovieCards = listOf(
-    PosterCard(157336, "Interstellar", "2014 • Christopher Nolan", listOf(Color(0xFF12343D), Color(0xFF1E5D6B), Color(0xFFF4D28A)), "7.7", overview = "A team of explorers travel through a wormhole in space.", mediaType = "movie"),
-    PosterCard(414906, "The Batman", "2022 • Matt Reeves", listOf(Color(0xFF1D212D), Color(0xFF2A2F3F), Color(0xFF57606D)), overview = "Batman uncovers corruption in Gotham City.", mediaType = "movie"),
-    PosterCard(872585, "Oppenheimer", "2023 • Christopher Nolan", listOf(Color(0xFF2E2018), Color(0xFF5A3625), Color(0xFFCB8E52)), overview = "The story of J. Robert Oppenheimer.", mediaType = "movie")
-)
-
-private val fallbackTvCards = listOf(
-    PosterCard(1402, "Succession", "4 Seasons • Drama", listOf(Color(0xFF0E3A46), Color(0xFF114F5E), Color(0xFF1B7184)), "NEW", overview = "A family controls one of the biggest media conglomerates.", mediaType = "tv"),
-    PosterCard(100088, "The Last of Us", "1 Season • Action", listOf(Color(0xFF2F4232), Color(0xFF6B8468), Color(0xFFC4C5AF)), overview = "Joel and Ellie survive in a post-apocalyptic world.", mediaType = "tv"),
-    PosterCard(70523, "Dark", "3 Seasons • Thriller", listOf(Color(0xFF23212B), Color(0xFF3D3A46), Color(0xFF6D6776)), overview = "A family saga with a supernatural twist in a German town.", mediaType = "tv")
-)
-
 private val posterGradients = listOf(
     listOf(Color(0xFF12343D), Color(0xFF1E5D6B), Color(0xFFF4D28A)),
     listOf(Color(0xFF1D212D), Color(0xFF2A2F3F), Color(0xFF57606D)),
@@ -85,17 +79,80 @@ private val posterGradients = listOf(
     listOf(Color(0xFF0E3A46), Color(0xFF114F5E), Color(0xFF1B7184))
 )
 
+private enum class HomeContentTab { Home, Movies, Tvshows }
+
 @ExperimentalMaterial3Api
 @Composable
 fun HomeScreen(navController: NavHostController) {
     val palette = LocalAppColors.current
     val viewModel: HomeViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val selectedTab = remember { mutableStateOf(HomeContentTab.Home) }
 
     val movieDynamicCards = state.movies.toMoviePosterCards(viewModel::posterUrl)
     val tvDynamicCards = state.tvShows.toTvPosterCards(viewModel::posterUrl)
-    val movieCards = if (movieDynamicCards.isEmpty()) fallbackMovieCards else movieDynamicCards.take(10)
-    val tvCards = if (tvDynamicCards.isEmpty()) fallbackTvCards else tvDynamicCards.take(10)
+    val topRatedMovieCards = state.topRatedMovies.toMoviePosterCards(viewModel::posterUrl)
+    val topRatedTvCards = state.topRatedTvShows.toTvPosterCards(viewModel::posterUrl)
+    val dramaCards = state.dramaMovies.toMoviePosterCards(viewModel::posterUrl)
+    val dramaTvCards = state.dramaTvShows.toTvPosterCards(viewModel::posterUrl)
+    val comedyCards = state.comedyMovies.toMoviePosterCards(viewModel::posterUrl)
+    val comedyTvCards = state.comedyTvShows.toTvPosterCards(viewModel::posterUrl)
+    val actionCards = state.actionMovies.toMoviePosterCards(viewModel::posterUrl)
+    val actionTvCards = state.actionTvShows.toTvPosterCards(viewModel::posterUrl)
+    val horrorCards = state.horrorMovies.toMoviePosterCards(viewModel::posterUrl)
+    val horrorTvCards = state.horrorTvShows.toTvPosterCards(viewModel::posterUrl)
+    val sciFiCards = state.sciFiMovies.toMoviePosterCards(viewModel::posterUrl)
+    val fantasyMovieCards = state.fantasyMovies.toMoviePosterCards(viewModel::posterUrl)
+    val fantasyTvCards = state.fantasyTvShows.toTvPosterCards(viewModel::posterUrl)
+
+    val movieCards = movieDynamicCards.take(20)
+    val tvCards = tvDynamicCards.take(20)
+    val topRatedMovies = topRatedMovieCards.take(20)
+    val topRatedTvShows = topRatedTvCards.take(20)
+    val dramaMixed = (dramaCards + dramaTvCards)
+        .distinctBy { "${it.mediaType}-${it.id}" }
+        .take(20)
+    val comedyMixed = (comedyCards + comedyTvCards)
+        .distinctBy { "${it.mediaType}-${it.id}" }
+        .take(20)
+    val actionMixed = (actionCards + actionTvCards)
+        .distinctBy { "${it.mediaType}-${it.id}" }
+        .take(20)
+    val horrorMixed = (horrorCards + horrorTvCards)
+        .distinctBy { "${it.mediaType}-${it.id}" }
+        .take(20)
+    val sciFiFantasyMovies = (sciFiCards + fantasyMovieCards)
+        .distinctBy { "${it.mediaType}-${it.id}" }
+        .take(20)
+    val sciFiFantasyMixed = (sciFiFantasyMovies + fantasyTvCards)
+        .distinctBy { "${it.mediaType}-${it.id}" }
+        .take(20)
+    val dramaTitles = when (selectedTab.value) {
+        HomeContentTab.Home -> dramaMixed
+        HomeContentTab.Movies -> dramaCards.take(20)
+        HomeContentTab.Tvshows -> dramaTvCards.take(20)
+    }
+    val comedyTitles = when (selectedTab.value) {
+        HomeContentTab.Home -> comedyMixed
+        HomeContentTab.Movies -> comedyCards.take(20)
+        HomeContentTab.Tvshows -> comedyTvCards.take(20)
+    }
+    val actionTitles = when (selectedTab.value) {
+        HomeContentTab.Home -> actionMixed
+        HomeContentTab.Movies -> actionCards.take(20)
+        HomeContentTab.Tvshows -> actionTvCards.take(20)
+    }
+    val horrorTitles = when (selectedTab.value) {
+        HomeContentTab.Home -> horrorMixed
+        HomeContentTab.Movies -> horrorCards.take(20)
+        HomeContentTab.Tvshows -> horrorTvCards.take(20)
+    }
+    val sciFiFantasyTitles = when (selectedTab.value) {
+        HomeContentTab.Home -> sciFiFantasyMixed
+        HomeContentTab.Movies -> sciFiFantasyMovies
+        HomeContentTab.Tvshows -> fantasyTvCards.take(20)
+    }
 
     Scaffold(
         bottomBar = { BottomBar(navController = navController) }
@@ -125,7 +182,32 @@ fun HomeScreen(navController: NavHostController) {
                 }
 
                 else -> {
-                    HomeScreenComponent(navController, movieCards, tvCards)
+                    HomeScreenComponent(
+                        navController = navController,
+                        movieCards = movieCards,
+                        tvCards = tvCards,
+                        topRatedMovieCards = topRatedMovies,
+                        topRatedTvCards = topRatedTvShows,
+                        dramaCards = dramaTitles,
+                        comedyCards = comedyTitles,
+                        actionCards = actionTitles,
+                        horrorCards = horrorTitles,
+                        sciFiFantasyCards = sciFiFantasyTitles,
+                        selectedTab = selectedTab.value,
+                        onTabSelected = { selectedTab.value = it },
+                        onWatchHeroTrailer = { selected ->
+                            viewModel.fetchTrailer(
+                                itemId = selected.id,
+                                mediaType = selected.mediaType
+                            ) { videoId, youtubeUrl ->
+                                openTrailerInYoutube(
+                                    context = context,
+                                    trailerVideoId = videoId,
+                                    trailerUrl = youtubeUrl
+                                )
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -137,7 +219,17 @@ fun HomeScreen(navController: NavHostController) {
 private fun HomeScreenComponent(
     navController: NavHostController,
     movieCards: List<PosterCard>,
-    tvCards: List<PosterCard>
+    tvCards: List<PosterCard>,
+    topRatedMovieCards: List<PosterCard>,
+    topRatedTvCards: List<PosterCard>,
+    dramaCards: List<PosterCard>,
+    comedyCards: List<PosterCard>,
+    actionCards: List<PosterCard>,
+    horrorCards: List<PosterCard>,
+    sciFiFantasyCards: List<PosterCard>,
+    selectedTab: HomeContentTab,
+    onTabSelected: (HomeContentTab) -> Unit,
+    onWatchHeroTrailer: (PosterCard) -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -151,22 +243,94 @@ private fun HomeScreenComponent(
             contentPadding = PaddingValues(bottom = 0.dp)
         ) {
             item { TopHeader() }
+            item { HomeSectionsBar(selected = selectedTab, onSelect = onTabSelected) }
             item {
+                val heroFeatured = if (selectedTab == HomeContentTab.Tvshows) {
+                    tvCards.firstOrNull()
+                } else {
+                    movieCards.firstOrNull()
+                }
                 HeroCard(
-                    featuredCard = movieCards.firstOrNull(),
+                    featuredCard = heroFeatured,
                     onOpenTitle = {
-                        movieCards.firstOrNull()?.let { selected ->
+                        heroFeatured?.let { selected ->
                             navController.navigate(selected.toTitleDetailsRoute())
+                        }
+                    },
+                    onWatchTrailer = {
+                        heroFeatured?.let { selected ->
+                            onWatchHeroTrailer(selected)
                         }
                     }
                 )
             }
-            item { SectionTitle(title = "Trending Movies", trailing = "Explore All") }
-            item { HorizontalPosterRow(cards = movieCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            if (selectedTab != HomeContentTab.Tvshows) {
+                item { SectionTitle(title = "Trending Movies", trailing = "Explore All") }
+                item { HorizontalPosterRow(cards = movieCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+                item { SectionTitle(title = "Top Rated Movies", trailing = "Explore All") }
+                item { HorizontalPosterRow(cards = topRatedMovieCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            }
             item { EditorsPickCard(palette = appColors()) }
             item { PremiumCard(palette = appColors()) }
-            item { SectionTitle(title = "Trending TV Shows", trailing = "View All") }
-            item { HorizontalPosterRow(cards = tvCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            if (selectedTab != HomeContentTab.Movies) {
+                item { SectionTitle(title = "Trending TV Shows", trailing = "View All") }
+                item { HorizontalPosterRow(cards = tvCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+                item { SectionTitle(title = "Top Rated TV Shows", trailing = "View All") }
+                item { HorizontalPosterRow(cards = topRatedTvCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            }
+            item { SectionTitle(title = "Drama", trailing = "View All") }
+            item { HorizontalPosterRow(cards = dramaCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            item { SectionTitle(title = "Comedy", trailing = "View All") }
+            item { HorizontalPosterRow(cards = comedyCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            item { SectionTitle(title = "Action", trailing = "View All") }
+            item { HorizontalPosterRow(cards = actionCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            item { SectionTitle(title = "Horror", trailing = "View All") }
+            item { HorizontalPosterRow(cards = horrorCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            item { SectionTitle(title = "Science Fiction/Fantasy", trailing = "View All") }
+            item { HorizontalPosterRow(cards = sciFiFantasyCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+        }
+    }
+}
+
+@Composable
+private fun HomeSectionsBar(
+    selected: HomeContentTab,
+    onSelect: (HomeContentTab) -> Unit
+) {
+    val options = listOf(HomeContentTab.Home, HomeContentTab.Movies, HomeContentTab.Tvshows)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceAround
+    ) {
+        options.forEach { option ->
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(24.dp))
+                    .width(100.dp)
+                    .background(
+                        if (selected == option) appColors().primary
+                        else Color.White.copy(alpha = 0.08f)
+                    )
+                    .border(
+                        1.dp,
+                        if (selected == option) Color.Transparent
+                        else Color.White.copy(alpha = 0.12f),
+                        RoundedCornerShape(18.dp)
+                    )
+                    .clickable { onSelect(option) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = option.name,
+                    color = if (selected == option) Color.Black else Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
@@ -283,7 +447,8 @@ private fun TopHeader() {
 @Composable
 private fun HeroCard(
     featuredCard: PosterCard?,
-    onOpenTitle: () -> Unit
+    onOpenTitle: () -> Unit,
+    onWatchTrailer: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -292,7 +457,7 @@ private fun HeroCard(
             .background(Color.Transparent)
             .clip(shape = RoundedCornerShape(0.dp))
             .clickable { onOpenTitle() }
-            .padding(horizontal = 0.dp, vertical = 6.dp)
+            .padding(horizontal = 4.dp, vertical = 6.dp)
     ) {
         if (featuredCard?.posterUrl != null) {
             AsyncImage(
@@ -301,7 +466,7 @@ private fun HeroCard(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+                    .clip(RoundedCornerShape( 16.dp))
             )
         } else {
             Box(
@@ -338,16 +503,18 @@ private fun HeroCard(
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Chip(label = "EXCLUSIVE", bg = Color(0xFFF6D24E), fg = Color.Black)
-                Text(
-                    text = featuredCard?.subtitle ?: "PG-13 • 2h 46m • Sci-Fi",
-                    color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 11.sp
-                )
+                if (!featuredCard?.subtitle.isNullOrBlank()) {
+                    Text(
+                        text = featuredCard?.subtitle.orEmpty(),
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 11.sp
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = featuredCard?.title ?: "DUNE: PART TWO",
+                text = featuredCard?.title ?: "No featured title",
                 color = Color.White,
                 fontSize = 32.sp,
                 lineHeight = 32.sp,
@@ -357,7 +524,7 @@ private fun HeroCard(
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "Now featuring trending picks from TMDB.",
+                text = featuredCard?.overview?.takeIf { it.isNotBlank() } ?: "No overview available.",
                 color = Color.White.copy(alpha = 0.9f),
                 fontSize = 14.sp,
                 lineHeight = 16.sp
@@ -369,6 +536,7 @@ private fun HeroCard(
                 modifier = Modifier
                     .clip(RoundedCornerShape(24.dp))
                     .background(Brush.horizontalGradient(listOf(Color(0xFFFFBA20), appColors().primary)))
+                    .clickable { onWatchTrailer() }
                     .padding(horizontal = 28.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -391,18 +559,7 @@ private fun HeroCard(
         Spacer(modifier = Modifier.height(10.dp))
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Chip(label = "All Genres", bg = Color(0XFFFFB800), fg = Color(0xFF2A0B42))
-        Chip(label = "Action", bg = Color.White.copy(alpha = 0.08f), fg = Color.White)
-        Chip(label = "Sci-Fi", bg = Color.White.copy(alpha = 0.08f), fg = Color.White)
-    }
-
-    Spacer(modifier = Modifier.height(4.dp))
+    Spacer(modifier = Modifier.height(6.dp))
 }
 
 @Composable
@@ -551,5 +708,24 @@ fun String.limitChars(maxChars: Int): String {
         this.take(maxChars) + "..."
     } else {
         this
+    }
+}
+
+private fun openTrailerInYoutube(
+    context: Context,
+    trailerVideoId: String?,
+    trailerUrl: String?
+) {
+    val fallbackUrl = trailerUrl ?: trailerVideoId?.let { "https://www.youtube.com/watch?v=$it" } ?: return
+    val appUri = trailerVideoId?.let { Uri.parse("vnd.youtube:$it") }
+
+    try {
+        if (appUri != null) {
+            context.startActivity(Intent(Intent.ACTION_VIEW, appUri))
+        } else {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
+        }
+    } catch (_: Exception) {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
     }
 }
