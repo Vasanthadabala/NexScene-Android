@@ -54,8 +54,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import com.piggylabs.nexscene.data.local.db.AppDataBase
 import com.piggylabs.nexscene.data.model.MovieDto
 import com.piggylabs.nexscene.data.model.TvDto
+import com.piggylabs.nexscene.navigation.Explore
+import com.piggylabs.nexscene.navigation.Notification
+import com.piggylabs.nexscene.navigation.Profile
 import com.piggylabs.nexscene.navigation.TitleDetails
 import com.piggylabs.nexscene.navigation.components.BottomBar
 import com.piggylabs.nexscene.ui.theme.LocalAppColors
@@ -69,7 +73,8 @@ data class PosterCard(
     val badge: String? = null,
     val posterUrl: String? = null,
     val overview: String = "",
-    val mediaType: String = "movie"
+    val mediaType: String = "movie",
+    val watched: Boolean = false
 )
 
 private val posterGradients = listOf(
@@ -88,23 +93,33 @@ fun HomeScreen(navController: NavHostController) {
     val viewModel: HomeViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+    val showBadges = context
+        .getSharedPreferences("MY_PRE", Context.MODE_PRIVATE)
+        .getBoolean("show_watched_badge", true)
+    val watchedItems by AppDataBase.getDatabase(context)
+        .titleStateDao()
+        .observeWatchedItems()
+        .collectAsState(initial = emptyList())
+    val watchedKeys = remember(watchedItems) {
+        watchedItems.map { "${it.mediaType}-${it.itemId}" }.toSet()
+    }
     val selectedTab = remember { mutableStateOf(HomeContentTab.Home) }
 
-    val movieDynamicCards = state.movies.toMoviePosterCards(viewModel::posterUrl)
-    val tvDynamicCards = state.tvShows.toTvPosterCards(viewModel::posterUrl)
-    val topRatedMovieCards = state.topRatedMovies.toMoviePosterCards(viewModel::posterUrl)
-    val topRatedTvCards = state.topRatedTvShows.toTvPosterCards(viewModel::posterUrl)
-    val dramaCards = state.dramaMovies.toMoviePosterCards(viewModel::posterUrl)
-    val dramaTvCards = state.dramaTvShows.toTvPosterCards(viewModel::posterUrl)
-    val comedyCards = state.comedyMovies.toMoviePosterCards(viewModel::posterUrl)
-    val comedyTvCards = state.comedyTvShows.toTvPosterCards(viewModel::posterUrl)
-    val actionCards = state.actionMovies.toMoviePosterCards(viewModel::posterUrl)
-    val actionTvCards = state.actionTvShows.toTvPosterCards(viewModel::posterUrl)
-    val horrorCards = state.horrorMovies.toMoviePosterCards(viewModel::posterUrl)
-    val horrorTvCards = state.horrorTvShows.toTvPosterCards(viewModel::posterUrl)
-    val sciFiCards = state.sciFiMovies.toMoviePosterCards(viewModel::posterUrl)
-    val fantasyMovieCards = state.fantasyMovies.toMoviePosterCards(viewModel::posterUrl)
-    val fantasyTvCards = state.fantasyTvShows.toTvPosterCards(viewModel::posterUrl)
+    val movieDynamicCards = state.movies.toMoviePosterCards(viewModel::posterUrl, watchedKeys)
+    val tvDynamicCards = state.tvShows.toTvPosterCards(viewModel::posterUrl, watchedKeys)
+    val topRatedMovieCards = state.topRatedMovies.toMoviePosterCards(viewModel::posterUrl, watchedKeys)
+    val topRatedTvCards = state.topRatedTvShows.toTvPosterCards(viewModel::posterUrl, watchedKeys)
+    val dramaCards = state.dramaMovies.toMoviePosterCards(viewModel::posterUrl, watchedKeys)
+    val dramaTvCards = state.dramaTvShows.toTvPosterCards(viewModel::posterUrl, watchedKeys)
+    val comedyCards = state.comedyMovies.toMoviePosterCards(viewModel::posterUrl, watchedKeys)
+    val comedyTvCards = state.comedyTvShows.toTvPosterCards(viewModel::posterUrl, watchedKeys)
+    val actionCards = state.actionMovies.toMoviePosterCards(viewModel::posterUrl, watchedKeys)
+    val actionTvCards = state.actionTvShows.toTvPosterCards(viewModel::posterUrl, watchedKeys)
+    val horrorCards = state.horrorMovies.toMoviePosterCards(viewModel::posterUrl, watchedKeys)
+    val horrorTvCards = state.horrorTvShows.toTvPosterCards(viewModel::posterUrl, watchedKeys)
+    val sciFiCards = state.sciFiMovies.toMoviePosterCards(viewModel::posterUrl, watchedKeys)
+    val fantasyMovieCards = state.fantasyMovies.toMoviePosterCards(viewModel::posterUrl, watchedKeys)
+    val fantasyTvCards = state.fantasyTvShows.toTvPosterCards(viewModel::posterUrl, watchedKeys)
 
     val movieCards = movieDynamicCards.take(20)
     val tvCards = tvDynamicCards.take(20)
@@ -176,7 +191,7 @@ fun HomeScreen(navController: NavHostController) {
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(state.error ?: "Error", color = Color.White)
+//                        Text(state.error ?: "Error", color = Color.White)
                         Button(onClick = viewModel::loadPopularMovies) { Text("Retry") }
                     }
                 }
@@ -195,6 +210,7 @@ fun HomeScreen(navController: NavHostController) {
                         sciFiFantasyCards = sciFiFantasyTitles,
                         selectedTab = selectedTab.value,
                         onTabSelected = { selectedTab.value = it },
+                        showBadges = showBadges,
                         onWatchHeroTrailer = { selected ->
                             viewModel.fetchTrailer(
                                 itemId = selected.id,
@@ -229,8 +245,15 @@ private fun HomeScreenComponent(
     sciFiFantasyCards: List<PosterCard>,
     selectedTab: HomeContentTab,
     onTabSelected: (HomeContentTab) -> Unit,
+    showBadges: Boolean,
     onWatchHeroTrailer: (PosterCard) -> Unit
 ) {
+    val genreMediaType = when (selectedTab) {
+        HomeContentTab.Home -> "mixed"
+        HomeContentTab.Movies -> "movie"
+        HomeContentTab.Tvshows -> "tv"
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -242,7 +265,7 @@ private fun HomeScreenComponent(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 0.dp)
         ) {
-            item { TopHeader() }
+            item { TopHeader(navController) }
             item { HomeSectionsBar(selected = selectedTab, onSelect = onTabSelected) }
             item {
                 val heroFeatured = if (selectedTab == HomeContentTab.Tvshows) {
@@ -265,29 +288,165 @@ private fun HomeScreenComponent(
                 )
             }
             if (selectedTab != HomeContentTab.Tvshows) {
-                item { SectionTitle(title = "Trending Movies", trailing = "Explore All") }
-                item { HorizontalPosterRow(cards = movieCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
-                item { SectionTitle(title = "Top Rated Movies", trailing = "Explore All") }
-                item { HorizontalPosterRow(cards = topRatedMovieCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+                item {
+                    SectionTitle(
+                        title = "Trending Movies",
+                        trailing = "Explore All",
+                        onTrailingClick = {
+                            navController.navigate(
+                                Explore.createRoute(
+                                    title = "Trending Movies",
+                                    source = "popular",
+                                    mediaType = "movie"
+                                )
+                            )
+                        }
+                    )
+                }
+                item { HorizontalPosterRow(cards = movieCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+                item {
+                    SectionTitle(
+                        title = "Top Rated Movies",
+                        trailing = "Explore All",
+                        onTrailingClick = {
+                            navController.navigate(
+                                Explore.createRoute(
+                                    title = "Top Rated Movies",
+                                    source = "top_rated",
+                                    mediaType = "movie"
+                                )
+                            )
+                        }
+                    )
+                }
+                item { HorizontalPosterRow(cards = topRatedMovieCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
             }
             item { EditorsPickCard(palette = appColors()) }
             item { PremiumCard(palette = appColors()) }
             if (selectedTab != HomeContentTab.Movies) {
-                item { SectionTitle(title = "Trending TV Shows", trailing = "View All") }
-                item { HorizontalPosterRow(cards = tvCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
-                item { SectionTitle(title = "Top Rated TV Shows", trailing = "View All") }
-                item { HorizontalPosterRow(cards = topRatedTvCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+                item {
+                    SectionTitle(
+                        title = "Trending TV Shows",
+                        trailing = "View All",
+                        onTrailingClick = {
+                            navController.navigate(
+                                Explore.createRoute(
+                                    title = "Trending TV Shows",
+                                    source = "popular",
+                                    mediaType = "tv"
+                                )
+                            )
+                        }
+                    )
+                }
+                item { HorizontalPosterRow(cards = tvCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+                item {
+                    SectionTitle(
+                        title = "Top Rated TV Shows",
+                        trailing = "View All",
+                        onTrailingClick = {
+                            navController.navigate(
+                                Explore.createRoute(
+                                    title = "Top Rated TV Shows",
+                                    source = "top_rated",
+                                    mediaType = "tv"
+                                )
+                            )
+                        }
+                    )
+                }
+                item { HorizontalPosterRow(cards = topRatedTvCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
             }
-            item { SectionTitle(title = "Drama", trailing = "View All") }
-            item { HorizontalPosterRow(cards = dramaCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
-            item { SectionTitle(title = "Comedy", trailing = "View All") }
-            item { HorizontalPosterRow(cards = comedyCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
-            item { SectionTitle(title = "Action", trailing = "View All") }
-            item { HorizontalPosterRow(cards = actionCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
-            item { SectionTitle(title = "Horror", trailing = "View All") }
-            item { HorizontalPosterRow(cards = horrorCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
-            item { SectionTitle(title = "Science Fiction/Fantasy", trailing = "View All") }
-            item { HorizontalPosterRow(cards = sciFiFantasyCards, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            item {
+                SectionTitle(
+                    title = "Drama",
+                    trailing = "View All",
+                    onTrailingClick = {
+                        navController.navigate(
+                            Explore.createRoute(
+                                title = "Drama",
+                                source = "genre",
+                                mediaType = genreMediaType,
+                                movieGenreId = 18,
+                                tvGenreId = 18
+                            )
+                        )
+                    }
+                )
+            }
+            item { HorizontalPosterRow(cards = dramaCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            item {
+                SectionTitle(
+                    title = "Comedy",
+                    trailing = "View All",
+                    onTrailingClick = {
+                        navController.navigate(
+                            Explore.createRoute(
+                                title = "Comedy",
+                                source = "genre",
+                                mediaType = genreMediaType,
+                                movieGenreId = 35,
+                                tvGenreId = 35
+                            )
+                        )
+                    }
+                )
+            }
+            item { HorizontalPosterRow(cards = comedyCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            item {
+                SectionTitle(
+                    title = "Action",
+                    trailing = "View All",
+                    onTrailingClick = {
+                        navController.navigate(
+                            Explore.createRoute(
+                                title = "Action",
+                                source = "genre",
+                                mediaType = genreMediaType,
+                                movieGenreId = 28,
+                                tvGenreId = 10759
+                            )
+                        )
+                    }
+                )
+            }
+            item { HorizontalPosterRow(cards = actionCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            item {
+                SectionTitle(
+                    title = "Horror",
+                    trailing = "View All",
+                    onTrailingClick = {
+                        navController.navigate(
+                            Explore.createRoute(
+                                title = "Horror",
+                                source = "genre",
+                                mediaType = genreMediaType,
+                                movieGenreId = 27,
+                                tvGenreId = 9648
+                            )
+                        )
+                    }
+                )
+            }
+            item { HorizontalPosterRow(cards = horrorCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+            item {
+                SectionTitle(
+                    title = "Science Fiction/Fantasy",
+                    trailing = "View All",
+                    onTrailingClick = {
+                        navController.navigate(
+                            Explore.createRoute(
+                                title = "Science Fiction/Fantasy",
+                                source = "genre",
+                                mediaType = genreMediaType,
+                                movieGenreId = 878,
+                                tvGenreId = 10765
+                            )
+                        )
+                    }
+                )
+            }
+            item { HorizontalPosterRow(cards = sciFiFantasyCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
         }
     }
 }
@@ -335,8 +494,12 @@ private fun HomeSectionsBar(
     }
 }
 
-private fun List<MovieDto>.toMoviePosterCards(posterUrlBuilder: (String?) -> String?): List<PosterCard> {
+private fun List<MovieDto>.toMoviePosterCards(
+    posterUrlBuilder: (String?) -> String?,
+    watchedKeys: Set<String>
+): List<PosterCard> {
     return mapIndexed { index, movie ->
+        val mediaType = "movie"
         PosterCard(
             id = movie.id,
             title = movie.title,
@@ -345,13 +508,18 @@ private fun List<MovieDto>.toMoviePosterCards(posterUrlBuilder: (String?) -> Str
             badge = String.format("%.1f", movie.vote_average),
             posterUrl = posterUrlBuilder(movie.poster_path),
             overview = movie.overview,
-            mediaType = "movie"
+            mediaType = mediaType,
+            watched = watchedKeys.contains("$mediaType-${movie.id}")
         )
     }
 }
 
-private fun List<TvDto>.toTvPosterCards(posterUrlBuilder: (String?) -> String?): List<PosterCard> {
+private fun List<TvDto>.toTvPosterCards(
+    posterUrlBuilder: (String?) -> String?,
+    watchedKeys: Set<String>
+): List<PosterCard> {
     return mapIndexed { index, tv ->
+        val mediaType = "tv"
         PosterCard(
             id = tv.id,
             title = tv.name,
@@ -360,7 +528,8 @@ private fun List<TvDto>.toTvPosterCards(posterUrlBuilder: (String?) -> String?):
             badge = String.format("%.1f", tv.vote_average),
             posterUrl = posterUrlBuilder(tv.poster_path),
             overview = tv.overview,
-            mediaType = "tv"
+            mediaType = mediaType,
+            watched = watchedKeys.contains("$mediaType-${tv.id}")
         )
     }
 }
@@ -378,7 +547,7 @@ private fun PosterCard.toTitleDetailsRoute(): String {
 }
 
 @Composable
-private fun TopHeader() {
+private fun TopHeader(navController: NavHostController) {
     val profilePhotoUrl = FirebaseAuth.getInstance().currentUser?.photoUrl?.toString()
     Row(
         modifier = Modifier
@@ -391,7 +560,10 @@ private fun TopHeader() {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.Gray.copy(alpha = 0.3f)),
+                .background(Color.Gray.copy(alpha = 0.3f))
+                .clickable{
+                    navController.navigate(Profile.route)
+                },
             contentAlignment = Alignment.Center
         ) {
             if (!profilePhotoUrl.isNullOrBlank()) {
@@ -406,7 +578,7 @@ private fun TopHeader() {
             } else {
                 Icon(
                     imageVector = Icons.Default.Person,
-                    contentDescription = "Menu",
+                    contentDescription = "Person",
                     modifier = Modifier
                         .padding(4.dp)
                         .size(24.dp)
@@ -430,7 +602,8 @@ private fun TopHeader() {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.Gray.copy(alpha = 0.3f)),
+                .background(Color.Gray.copy(alpha = 0.3f))
+                .clickable { navController.navigate(Notification.route) },
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -563,7 +736,11 @@ private fun HeroCard(
 }
 
 @Composable
-private fun SectionTitle(title: String, trailing: String) {
+private fun SectionTitle(
+    title: String,
+    trailing: String,
+    onTrailingClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -575,13 +752,20 @@ private fun SectionTitle(title: String, trailing: String) {
             Text(text = "CURATED", color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp, letterSpacing = 2.sp)
             Text(text = title, color = Color.White, fontSize = 28.sp, lineHeight = 48.sp, fontWeight = FontWeight.ExtraBold)
         }
-        Text(text = trailing, color = Color.White.copy(alpha = 0.86f), fontSize = 14.sp, lineHeight = 48.sp)
+        Text(
+            text = trailing,
+            color = Color.White.copy(alpha = 0.86f),
+            fontSize = 14.sp,
+            lineHeight = 48.sp,
+            modifier = Modifier.clickable(onClick = onTrailingClick)
+        )
     }
 }
 
 @Composable
 private fun HorizontalPosterRow(
     cards: List<PosterCard>,
+    showBadges: Boolean,
     onCardClick: (PosterCard) -> Unit
 ) {
     LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -606,7 +790,7 @@ private fun HorizontalPosterRow(
                                 .clip(RoundedCornerShape(16.dp))
                         )
                     }
-                    if (card.badge != null) {
+                    if (showBadges && card.badge != null) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
@@ -615,6 +799,23 @@ private fun HorizontalPosterRow(
                                 .padding(horizontal = 12.dp, vertical = 4.dp)
                         ) {
                             Text(text = "★ ${card.badge}", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (showBadges && card.watched) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(start = 8.dp, top = 8.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF2E7D32).copy(alpha = 0.9f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "WATCHED",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -638,10 +839,10 @@ private fun EditorsPickCard(palette: com.piggylabs.nexscene.ui.theme.AppColors) 
             .padding(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = "EDITOR'S PICK", color = Color.White.copy(alpha = 0.72f), letterSpacing = 1.sp, fontSize = 10.sp)
-            Text(text = "THE ART OF\nCINEMATOGRAPHY", color = Color.White, fontSize = 32.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold)
+            Text(text = "TRACKING TIP", color = Color.White.copy(alpha = 0.72f), letterSpacing = 1.sp, fontSize = 10.sp)
+            Text(text = "BUILD YOUR\nMOVIE JOURNAL", color = Color.White, fontSize = 32.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold)
             Text(
-                text = "Discover the visionaries behind\nthe lens in our exclusive weekly\ndeep-dive series.",
+                text = "Add films to your watchlist, mark\nwhat you finished, and keep quick\nnotes with your personal ratings.",
                 color = Color.White.copy(alpha = 0.82f),
                 fontSize = 13.sp,
                 lineHeight = 18.sp
@@ -670,14 +871,14 @@ private fun PremiumCard(palette: com.piggylabs.nexscene.ui.theme.AppColors) {
             ) {
                 Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFF2B0C3F), modifier = Modifier.size(12.dp))
             }
-            Text(text = "Premium Perks", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 28.sp)
+            Text(text = "Your Stats Hub", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 28.sp)
             Text(
-                text = "Unlock 4K streaming, early access, and\nzero ads with a Pro subscription.",
+                text = "Track watched count, average rating,\nand your most loved movies in one place.",
                 color = Color.White.copy(alpha = 0.82f),
                 fontSize = 13.sp,
                 lineHeight = 18.sp
             )
-            Text(text = "Upgrade Now  ->", color = Color(0xFFE6C6FF), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(text = "Rate More Titles  ->", color = Color(0xFFE6C6FF), fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
 
         Box(

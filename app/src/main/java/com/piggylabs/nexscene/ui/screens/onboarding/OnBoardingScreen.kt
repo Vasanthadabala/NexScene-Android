@@ -73,6 +73,7 @@ private const val LOGIN_OPTIONS_TAG = "LoginOptionsFlow"
 private const val LAST_SYNCED_AT_KEY = "last_synced_at"
 private const val ACTIVE_DATA_UID_KEY = "active_data_uid"
 private const val ACTIVE_DATA_ACCOUNT_TYPE_KEY = "active_data_account_type"
+private const val GUEST_ACCESS_KEY = "guest_access_enabled"
 
 @ExperimentalMaterial3Api
 @Composable
@@ -146,7 +147,10 @@ fun OnBoardingScreenComponent(navController: NavHostController) {
                         setSyncing = { isGoogleSigningIn = it },
                         onComplete = { message, _ ->
                             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                            editor.putBoolean("is_logged_in", true).apply()
+                            editor
+                                .putBoolean("is_logged_in", true)
+                                .putBoolean(GUEST_ACCESS_KEY, false)
+                                .apply()
                             navController.navigate(Home.route) {
                                 popUpTo(navController.graph.id) { inclusive = true }
                             }
@@ -325,6 +329,28 @@ fun OnBoardingScreenComponent(navController: NavHostController) {
         }
 
         Spacer(modifier = Modifier.height(36.dp))
+
+        Text(
+            text = "Skip for now",
+            color = Color.White.copy(alpha = 0.85f),
+            textAlign = TextAlign.Center,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            textDecoration = TextDecoration.Underline,
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .clickable(enabled = !isGoogleSigningIn) {
+                    editor.putBoolean("is_logged_in", false)
+                        .putBoolean(GUEST_ACCESS_KEY, true)
+                        .apply()
+                    navController.navigate(Home.route) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                }
+                .padding(vertical = 4.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = buildTermsText(),

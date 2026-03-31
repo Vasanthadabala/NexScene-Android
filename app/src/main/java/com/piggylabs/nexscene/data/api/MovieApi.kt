@@ -62,12 +62,30 @@ sealed class ProvidersApiResponse {
 }
 
 object MovieApi {
+    private const val TAG = "TMDB_API"
     private val client = KtorClientProvider.client
     private val json = KtorClientProvider.json
 
     private const val BASE_URL = "https://api.themoviedb.org/3/"
     private const val POSTER_BASE_URL = "https://image.tmdb.org/t/p/original"
     private const val LOGO_BASE_URL = "https://image.tmdb.org/t/p/w500"
+
+    private fun logRequest(endpoint: String, extras: String = "") {
+        Log.d(TAG, "Request -> $endpoint${if (extras.isNotBlank()) " | $extras" else ""}")
+    }
+
+    private fun logResponse(endpoint: String, status: HttpStatusCode, body: String) {
+        val preview = body.take(300).replace("\n", " ")
+        Log.d(TAG, "Response <- $endpoint | status=${status.value} | body=$preview")
+    }
+
+    private fun logError(endpoint: String, message: String, throwable: Throwable? = null) {
+        if (throwable != null) {
+            Log.e(TAG, "Error !! $endpoint | $message", throwable)
+        } else {
+            Log.e(TAG, "Error !! $endpoint | $message")
+        }
+    }
 
     fun posterUrl(path: String?): String? {
         val safePath = path?.trim().orEmpty()
@@ -82,189 +100,250 @@ object MovieApi {
         return url
     }
 
-    suspend fun getPopularMovies(): MovieApiResponse {
+    suspend fun getPopularMovies(page: Int = 1): MovieApiResponse {
+        val endpoint = "${BASE_URL}movie/popular"
         val apiKey = BuildConfig.TMDB_API_KEY
         if (apiKey.isBlank()) {
+            logError(endpoint, "TMDB API key missing")
             return MovieApiResponse.Error("TMDB API key missing. Add TMDB_API_KEY in local.properties")
         }
 
         return try {
-            val response = client.get("${BASE_URL}movie/popular") {
+            logRequest(endpoint, "page=$page")
+            val response = client.get(endpoint) {
                 parameter("api_key", apiKey)
+                parameter("page", page)
             }
 
             val body = response.bodyAsText()
-            Log.d("APi", body)
+            logResponse(endpoint, response.status, body)
             if (response.status == HttpStatusCode.OK) {
                 val parsed = json.decodeFromString<MovieResponse>(body)
+                Log.d(TAG, "Parsed movies count=${parsed.results.size} for popular movies")
                 MovieApiResponse.Success(parsed.results)
             } else {
+                logError(endpoint, "Non-OK status ${response.status.value}")
                 MovieApiResponse.Error("Error: ${response.status}")
             }
         } catch (e: Exception) {
+            logError(endpoint, "Exception: ${e.message ?: "Unknown error"}", e)
             MovieApiResponse.Error("Exception: ${e.message ?: "Unknown error"}")
         }
     }
 
     suspend fun searchMovies(query: String): MovieApiResponse {
+        val endpoint = "${BASE_URL}search/movie"
         val apiKey = BuildConfig.TMDB_API_KEY
         if (apiKey.isBlank()) {
+            logError(endpoint, "TMDB API key missing")
             return MovieApiResponse.Error("TMDB API key missing. Add TMDB_API_KEY in local.properties")
         }
 
         return try {
-            val response = client.get("${BASE_URL}search/movie") {
+            logRequest(endpoint, "query=$query")
+            val response = client.get(endpoint) {
                 parameter("api_key", apiKey)
                 parameter("query", query)
             }
 
             val body = response.bodyAsText()
+            logResponse(endpoint, response.status, body)
             if (response.status == HttpStatusCode.OK) {
                 val parsed = json.decodeFromString<MovieResponse>(body)
+                Log.d(TAG, "Parsed movies count=${parsed.results.size} for movie search")
                 MovieApiResponse.Success(parsed.results)
             } else {
+                logError(endpoint, "Non-OK status ${response.status.value}")
                 MovieApiResponse.Error("Error: ${response.status}")
             }
         } catch (e: Exception) {
+            logError(endpoint, "Exception: ${e.message ?: "Unknown error"}", e)
             MovieApiResponse.Error(e.message ?: "Unknown error")
         }
     }
 
     suspend fun searchTvShows(query: String): TvApiResponse {
+        val endpoint = "${BASE_URL}search/tv"
         val apiKey = BuildConfig.TMDB_API_KEY
         if (apiKey.isBlank()) {
+            logError(endpoint, "TMDB API key missing")
             return TvApiResponse.Error("TMDB API key missing. Add TMDB_API_KEY in local.properties")
         }
 
         return try {
-            val response = client.get("${BASE_URL}search/tv") {
+            logRequest(endpoint, "query=$query")
+            val response = client.get(endpoint) {
                 parameter("api_key", apiKey)
                 parameter("query", query)
             }
 
             val body = response.bodyAsText()
+            logResponse(endpoint, response.status, body)
             if (response.status == HttpStatusCode.OK) {
                 val parsed = json.decodeFromString<TvResponse>(body)
+                Log.d(TAG, "Parsed tv count=${parsed.results.size} for tv search")
                 TvApiResponse.Success(parsed.results)
             } else {
+                logError(endpoint, "Non-OK status ${response.status.value}")
                 TvApiResponse.Error("Error: ${response.status}")
             }
         } catch (e: Exception) {
+            logError(endpoint, "Exception: ${e.message ?: "Unknown error"}", e)
             TvApiResponse.Error(e.message ?: "Unknown error")
         }
     }
 
-    suspend fun getPopularTvShows(): TvApiResponse {
+    suspend fun getPopularTvShows(page: Int = 1): TvApiResponse {
+        val endpoint = "${BASE_URL}tv/popular"
         val apiKey = BuildConfig.TMDB_API_KEY
         if (apiKey.isBlank()) {
+            logError(endpoint, "TMDB API key missing")
             return TvApiResponse.Error("TMDB API key missing. Add TMDB_API_KEY in local.properties")
         }
 
         return try {
-            val response = client.get("${BASE_URL}tv/popular") {
+            logRequest(endpoint, "page=$page")
+            val response = client.get(endpoint) {
                 parameter("api_key", apiKey)
+                parameter("page", page)
             }
 
             val body = response.bodyAsText()
+            logResponse(endpoint, response.status, body)
             if (response.status == HttpStatusCode.OK) {
                 val parsed = json.decodeFromString<TvResponse>(body)
+                Log.d(TAG, "Parsed tv count=${parsed.results.size} for popular tv")
                 TvApiResponse.Success(parsed.results)
             } else {
+                logError(endpoint, "Non-OK status ${response.status.value}")
                 TvApiResponse.Error("Error: ${response.status}")
             }
         } catch (e: Exception) {
+            logError(endpoint, "Exception: ${e.message ?: "Unknown error"}", e)
             TvApiResponse.Error("Exception: ${e.message ?: "Unknown error"}")
         }
     }
 
-    suspend fun getTopRatedMovies(): MovieApiResponse {
+    suspend fun getTopRatedMovies(page: Int = 1): MovieApiResponse {
+        val endpoint = "${BASE_URL}movie/top_rated"
         val apiKey = BuildConfig.TMDB_API_KEY
         if (apiKey.isBlank()) {
+            logError(endpoint, "TMDB API key missing")
             return MovieApiResponse.Error("TMDB API key missing. Add TMDB_API_KEY in local.properties")
         }
 
         return try {
-            val response = client.get("${BASE_URL}movie/top_rated") {
+            logRequest(endpoint, "page=$page")
+            val response = client.get(endpoint) {
                 parameter("api_key", apiKey)
+                parameter("page", page)
             }
             val body = response.bodyAsText()
+            logResponse(endpoint, response.status, body)
             if (response.status == HttpStatusCode.OK) {
                 val parsed = json.decodeFromString<MovieResponse>(body)
+                Log.d(TAG, "Parsed movies count=${parsed.results.size} for top rated movies")
                 MovieApiResponse.Success(parsed.results)
             } else {
+                logError(endpoint, "Non-OK status ${response.status.value}")
                 MovieApiResponse.Error("Error: ${response.status}")
             }
         } catch (e: Exception) {
+            logError(endpoint, "Exception: ${e.message ?: "Unknown error"}", e)
             MovieApiResponse.Error("Exception: ${e.message ?: "Unknown error"}")
         }
     }
 
-    suspend fun getTopRatedTvShows(): TvApiResponse {
+    suspend fun getTopRatedTvShows(page: Int = 1): TvApiResponse {
+        val endpoint = "${BASE_URL}tv/top_rated"
         val apiKey = BuildConfig.TMDB_API_KEY
         if (apiKey.isBlank()) {
+            logError(endpoint, "TMDB API key missing")
             return TvApiResponse.Error("TMDB API key missing. Add TMDB_API_KEY in local.properties")
         }
 
         return try {
-            val response = client.get("${BASE_URL}tv/top_rated") {
+            logRequest(endpoint, "page=$page")
+            val response = client.get(endpoint) {
                 parameter("api_key", apiKey)
+                parameter("page", page)
             }
             val body = response.bodyAsText()
+            logResponse(endpoint, response.status, body)
             if (response.status == HttpStatusCode.OK) {
                 val parsed = json.decodeFromString<TvResponse>(body)
+                Log.d(TAG, "Parsed tv count=${parsed.results.size} for top rated tv")
                 TvApiResponse.Success(parsed.results)
             } else {
+                logError(endpoint, "Non-OK status ${response.status.value}")
                 TvApiResponse.Error("Error: ${response.status}")
             }
         } catch (e: Exception) {
+            logError(endpoint, "Exception: ${e.message ?: "Unknown error"}", e)
             TvApiResponse.Error("Exception: ${e.message ?: "Unknown error"}")
         }
     }
 
-    suspend fun discoverMoviesByGenre(genreId: Int): MovieApiResponse {
+    suspend fun discoverMoviesByGenre(genreId: Int, page: Int = 1): MovieApiResponse {
+        val endpoint = "${BASE_URL}discover/movie"
         val apiKey = BuildConfig.TMDB_API_KEY
         if (apiKey.isBlank()) {
+            logError(endpoint, "TMDB API key missing")
             return MovieApiResponse.Error("TMDB API key missing. Add TMDB_API_KEY in local.properties")
         }
 
         return try {
-            val response = client.get("${BASE_URL}discover/movie") {
+            logRequest(endpoint, "with_genres=$genreId, page=$page")
+            val response = client.get(endpoint) {
                 parameter("api_key", apiKey)
                 parameter("with_genres", genreId)
                 parameter("sort_by", "popularity.desc")
+                parameter("page", page)
             }
             val body = response.bodyAsText()
+            logResponse(endpoint, response.status, body)
             if (response.status == HttpStatusCode.OK) {
                 val parsed = json.decodeFromString<MovieResponse>(body)
+                Log.d(TAG, "Parsed movies count=${parsed.results.size} for discover/movie genre=$genreId")
                 MovieApiResponse.Success(parsed.results)
             } else {
+                logError(endpoint, "Non-OK status ${response.status.value}")
                 MovieApiResponse.Error("Error: ${response.status}")
             }
         } catch (e: Exception) {
+            logError(endpoint, "Exception: ${e.message ?: "Unknown error"}", e)
             MovieApiResponse.Error("Exception: ${e.message ?: "Unknown error"}")
         }
     }
 
-    suspend fun discoverTvByGenre(genreId: Int): TvApiResponse {
+    suspend fun discoverTvByGenre(genreId: Int, page: Int = 1): TvApiResponse {
+        val endpoint = "${BASE_URL}discover/tv"
         val apiKey = BuildConfig.TMDB_API_KEY
         if (apiKey.isBlank()) {
+            logError(endpoint, "TMDB API key missing")
             return TvApiResponse.Error("TMDB API key missing. Add TMDB_API_KEY in local.properties")
         }
 
         return try {
-            val response = client.get("${BASE_URL}discover/tv") {
+            logRequest(endpoint, "with_genres=$genreId, page=$page")
+            val response = client.get(endpoint) {
                 parameter("api_key", apiKey)
                 parameter("with_genres", genreId)
                 parameter("sort_by", "popularity.desc")
+                parameter("page", page)
             }
             val body = response.bodyAsText()
+            logResponse(endpoint, response.status, body)
             if (response.status == HttpStatusCode.OK) {
                 val parsed = json.decodeFromString<TvResponse>(body)
+                Log.d(TAG, "Parsed tv count=${parsed.results.size} for discover/tv genre=$genreId")
                 TvApiResponse.Success(parsed.results)
             } else {
+                logError(endpoint, "Non-OK status ${response.status.value}")
                 TvApiResponse.Error("Error: ${response.status}")
             }
         } catch (e: Exception) {
+            logError(endpoint, "Exception: ${e.message ?: "Unknown error"}", e)
             TvApiResponse.Error("Exception: ${e.message ?: "Unknown error"}")
         }
     }

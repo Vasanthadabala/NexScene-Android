@@ -10,23 +10,23 @@ import com.piggylabs.nexscene.data.api.CastApiResponse
 import com.piggylabs.nexscene.data.api.TitleDetailsApiResponse
 
 class MovieRepository {
-    suspend fun getPopularMovies(): MovieApiResponse = MovieApi.getPopularMovies()
+    suspend fun getPopularMovies(page: Int = 1): MovieApiResponse = MovieApi.getPopularMovies(page)
 
     suspend fun searchMovies(query: String): MovieApiResponse = MovieApi.searchMovies(query)
 
     suspend fun searchTvShows(query: String): TvApiResponse = MovieApi.searchTvShows(query)
 
-    suspend fun getPopularTvShows(): TvApiResponse = MovieApi.getPopularTvShows()
+    suspend fun getPopularTvShows(page: Int = 1): TvApiResponse = MovieApi.getPopularTvShows(page)
 
-    suspend fun getTopRatedMovies(): MovieApiResponse = MovieApi.getTopRatedMovies()
+    suspend fun getTopRatedMovies(page: Int = 1): MovieApiResponse = MovieApi.getTopRatedMovies(page)
 
-    suspend fun getTopRatedTvShows(): TvApiResponse = MovieApi.getTopRatedTvShows()
+    suspend fun getTopRatedTvShows(page: Int = 1): TvApiResponse = MovieApi.getTopRatedTvShows(page)
 
-    suspend fun discoverMoviesByGenre(genreId: Int): MovieApiResponse =
-        MovieApi.discoverMoviesByGenre(genreId)
+    suspend fun discoverMoviesByGenre(genreId: Int, page: Int = 1): MovieApiResponse =
+        MovieApi.discoverMoviesByGenre(genreId, page)
 
-    suspend fun discoverTvByGenre(genreId: Int): TvApiResponse =
-        MovieApi.discoverTvByGenre(genreId)
+    suspend fun discoverTvByGenre(genreId: Int, page: Int = 1): TvApiResponse =
+        MovieApi.discoverTvByGenre(genreId, page)
 
     suspend fun getMovieTrailer(movieId: Int): TrailerApiResponse = MovieApi.getMovieTrailer(movieId)
 

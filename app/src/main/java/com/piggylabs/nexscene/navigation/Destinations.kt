@@ -17,6 +17,33 @@ object Home: Destinations{
 
 object Explore: Destinations{
     override val route = "Explore"
+
+    const val titleArg = "title"
+    const val sourceArg = "source"
+    const val mediaTypeArg = "mediaType"
+    const val movieGenreIdArg = "movieGenreId"
+    const val tvGenreIdArg = "tvGenreId"
+
+    val routeWithArgs =
+        "$route?$titleArg={$titleArg}&$sourceArg={$sourceArg}&$mediaTypeArg={$mediaTypeArg}&$movieGenreIdArg={$movieGenreIdArg}&$tvGenreIdArg={$tvGenreIdArg}"
+
+    fun createRoute(
+        title: String,
+        source: String,
+        mediaType: String,
+        movieGenreId: Int = 0,
+        tvGenreId: Int = movieGenreId
+    ): String {
+        return "$route?$titleArg=${Uri.encode(title)}" +
+            "&$sourceArg=${Uri.encode(source)}" +
+            "&$mediaTypeArg=${Uri.encode(mediaType)}" +
+            "&$movieGenreIdArg=$movieGenreId" +
+            "&$tvGenreIdArg=$tvGenreId"
+    }
+}
+
+object Notification: Destinations{
+    override val route = "Notification"
 }
 
 object TitleDetails: Destinations{

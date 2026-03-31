@@ -1,5 +1,6 @@
 package com.piggylabs.nexscene.ui.screens.search
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,14 +51,21 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.piggylabs.nexscene.data.local.db.AppDataBase
 import com.piggylabs.nexscene.data.model.TitleCardDto
+import com.piggylabs.nexscene.navigation.Explore
 import com.piggylabs.nexscene.navigation.TitleDetails
 import com.piggylabs.nexscene.navigation.components.BottomBar
 import com.piggylabs.nexscene.ui.screens.home.limitChars
 import com.piggylabs.nexscene.ui.theme.LocalAppColors
 import com.piggylabs.nexscene.ui.theme.appColors
 
-private data class GenreCard(val name: String, val posterUrl: String)
+private data class GenreCard(
+    val name: String,
+    val posterUrl: String,
+    val movieGenreId: Int,
+    val tvGenreId: Int
+)
 data class TrendCard(
     val id: Int = 0,
     val mediaType: String = "",
@@ -65,14 +74,15 @@ data class TrendCard(
     val rating: String,
     val gradient: List<Color>,
     val overview: String = "",
-    val posterUrl: String? = null
+    val posterUrl: String? = null,
+    val watched: Boolean = false
 )
 
 private val genres = listOf(
-    GenreCard("ACTION", "https://image.tmdb.org/t/p/w500/NNxYkU70HPurnNCSiCjYAmacwm.jpg"),  // Mission: Impossible
-    GenreCard("COMEDY", "https://image.tmdb.org/t/p/w500/hlK0e0wAQ3VLuJcsfIYPvb4JVud.jpg"),  // Zootopia-like comedic vibe
-    GenreCard("HORROR", "https://image.tmdb.org/t/p/w500/9E2y5Q7WlCVNEhP5GiVTjhEhx1o.jpg"),  // It
-    GenreCard("ROMANCE", "https://image.tmdb.org/t/p/w500/9xjZS2rlVxm8SFx8kPC3aIGCOYQ.jpg")   // Titanic
+    GenreCard("ACTION", "https://image.tmdb.org/t/p/w500/NNxYkU70HPurnNCSiCjYAmacwm.jpg", 28, 10759),
+    GenreCard("COMEDY", "https://image.tmdb.org/t/p/w500/hlK0e0wAQ3VLuJcsfIYPvb4JVud.jpg", 35, 35),
+    GenreCard("HORROR", "https://image.tmdb.org/t/p/w500/9E2y5Q7WlCVNEhP5GiVTjhEhx1o.jpg", 27, 9648),
+    GenreCard("ROMANCE", "https://image.tmdb.org/t/p/w500/9xjZS2rlVxm8SFx8kPC3aIGCOYQ.jpg", 10749, 10749)
 )
 
 private val trendGradients = listOf(
@@ -87,6 +97,17 @@ fun SearchScreen(navController: NavHostController) {
     val palette = LocalAppColors.current
     val viewModel: SearchViewModel = viewModel()
     val state by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val showBadges = context
+        .getSharedPreferences("MY_PRE", Context.MODE_PRIVATE)
+        .getBoolean("show_watched_badge", true)
+    val watchedItems by AppDataBase.getDatabase(context)
+        .titleStateDao()
+        .observeWatchedItems()
+        .collectAsState(initial = emptyList())
+    val watchedKeys = remember(watchedItems) {
+        watchedItems.map { "${it.mediaType}-${it.itemId}" }.toSet()
+    }
 
     val recentItems = state.results.take(5).map { it.title }
     val trends = if (state.results.isNotEmpty()) {
@@ -99,7 +120,8 @@ fun SearchScreen(navController: NavHostController) {
                 rating = item.rating,
                 gradient = trendGradients[index % trendGradients.size],
                 overview = item.overview,
-                posterUrl = item.posterUrl
+                posterUrl = item.posterUrl,
+                watched = watchedKeys.contains("${item.mediaType}-${item.id}")
             )
         }
     } else {
@@ -112,7 +134,8 @@ fun SearchScreen(navController: NavHostController) {
                 rating = item.rating,
                 gradient = trendGradients[index % trendGradients.size],
                 overview = item.overview,
-                posterUrl = item.posterUrl
+                posterUrl = item.posterUrl,
+                watched = watchedKeys.contains("${item.mediaType}-${item.id}")
             )
         }
     }
@@ -134,6 +157,8 @@ fun SearchScreen(navController: NavHostController) {
                 results = state.results,
                 recentItems = recentItems,
                 trends = trends,
+                watchedKeys = watchedKeys,
+                showBadges = showBadges,
                 onQueryChange = viewModel::onQueryChanged,
                 onSearch = viewModel::searchNow
             )
@@ -151,6 +176,8 @@ private fun SearchScreenComponent(
     results: List<TitleCardDto>,
     recentItems: List<String>,
     trends: List<TrendCard>,
+    watchedKeys: Set<String>,
+    showBadges: Boolean,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit
 ) {
@@ -175,7 +202,12 @@ private fun SearchScreenComponent(
                     isLoading -> Text("Searching...", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
                     error != null -> Text(error, color = Color(0xFFFF7A7A), fontSize = 13.sp)
                     results.isEmpty() -> Text("No results found", color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
-                    else -> SearchResultsGrid(navController = navController, results = results)
+                    else -> SearchResultsGrid(
+                        navController = navController,
+                        results = results,
+                        watchedKeys = watchedKeys,
+                        showBadges = showBadges
+                    )
                 }
             }
             return
@@ -193,9 +225,16 @@ private fun SearchScreenComponent(
             if (recentItems.isNotEmpty()) {
                 item { RecentlySearchedSection(recentItems) }
             }
-            item { ExploreGenresSection() }
+            item { ExploreGenresSection(navController = navController) }
             if (trends.isNotEmpty()) {
-                item { TrendingSection(navController = navController, trends = trends) }
+                item {
+                    TrendingSection(
+                        navController = navController,
+                        trends = trends,
+                        watchedKeys = watchedKeys,
+                        showBadges = showBadges
+                    )
+                }
             }
         }
     }
@@ -204,7 +243,9 @@ private fun SearchScreenComponent(
 @Composable
 private fun SearchResultsGrid(
     navController: NavHostController,
-    results: List<TitleCardDto>
+    results: List<TitleCardDto>,
+    watchedKeys: Set<String>,
+    showBadges: Boolean
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
@@ -243,15 +284,29 @@ private fun SearchResultsGrid(
                             modifier = Modifier.matchParentSize()
                         )
                     }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.Black.copy(alpha = 0.45f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(item.rating, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    if (showBadges) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.Black.copy(alpha = 0.45f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(item.rating, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (showBadges && watchedKeys.contains("${item.mediaType}-${item.id}")) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(8.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF2E7D32).copy(alpha = 0.9f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("WATCHED", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
                 Text(item.title.limitChars(18), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
@@ -349,7 +404,7 @@ private fun RecentlySearchedSection(recentItems: List<String>) {
 }
 
 @Composable
-private fun ExploreGenresSection() {
+private fun ExploreGenresSection(navController: NavHostController) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Explore Genres", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
         for (row in genres.chunked(2)) {
@@ -360,7 +415,18 @@ private fun ExploreGenresSection() {
                             .weight(1f)
                             .height(110.dp)
                             .clip(RoundedCornerShape(30.dp))
-                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(30.dp)),
+                            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(30.dp))
+                            .clickable {
+                                navController.navigate(
+                                    Explore.createRoute(
+                                        title = "${genre.name} Picks",
+                                        source = "genre",
+                                        mediaType = "mixed",
+                                        movieGenreId = genre.movieGenreId,
+                                        tvGenreId = genre.tvGenreId
+                                    )
+                                )
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
@@ -399,7 +465,9 @@ private fun ExploreGenresSection() {
 @Composable
 private fun TrendingSection(
     navController: NavHostController,
-    trends: List<TrendCard>
+    trends: List<TrendCard>,
+    watchedKeys: Set<String>,
+    showBadges: Boolean
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
@@ -458,18 +526,33 @@ private fun TrendingSection(
                                     )
                             )
                         }
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.Black.copy(alpha = 0.32f))
-                                .padding(horizontal = 10.dp, vertical = 5.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("★", color = Color.White, fontSize = 10.sp)
-                                Spacer(modifier = Modifier.size(4.dp))
-                                Text(card.rating, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        if (showBadges) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.Black.copy(alpha = 0.32f))
+                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("★", color = Color.White, fontSize = 10.sp)
+                                    Spacer(modifier = Modifier.size(4.dp))
+                                    Text(card.rating, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        if (showBadges && (card.watched || watchedKeys.contains("${card.mediaType}-${card.id}"))) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(8.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF2E7D32).copy(alpha = 0.9f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("WATCHED", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

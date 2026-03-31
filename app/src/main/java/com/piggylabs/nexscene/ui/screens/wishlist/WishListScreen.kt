@@ -1,5 +1,6 @@
 package com.piggylabs.nexscene.ui.screens.wishlist
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -61,6 +62,9 @@ fun WishListScreen(navController: NavHostController) {
     val viewModel: WishListViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+    val showBadges = context
+        .getSharedPreferences("MY_PRE", Context.MODE_PRIVATE)
+        .getBoolean("show_watched_badge", true)
 
     var filter by rememberSaveable { mutableStateOf(WishFilter.All) }
     var watchedOnly by rememberSaveable { mutableStateOf(false) }
@@ -88,6 +92,7 @@ fun WishListScreen(navController: NavHostController) {
                 watchedOnly = watchedOnly,
                 watchlistItems = filteredWatchlist,
                 watchedItems = filteredWatched,
+                showBadges = showBadges,
                 onFilterChange = { filter = it },
                 onToggleWatchedOnly = { watchedOnly = !watchedOnly },
                 onRemoveFromWatchlist = viewModel::removeFromWatchlist,
@@ -106,6 +111,7 @@ private fun WishListScreenComponent(
     watchedOnly: Boolean,
     watchlistItems: List<TitleUserState>,
     watchedItems: List<TitleUserState>,
+    showBadges: Boolean,
     onFilterChange: (WishFilter) -> Unit,
     onToggleWatchedOnly: () -> Unit,
     onRemoveFromWatchlist: (Int, String) -> Unit,
@@ -153,6 +159,7 @@ private fun WishListScreenComponent(
                                     modifier = Modifier.weight(1f),
                                     actionIcon = Icons.Default.Close,
                                     actionDescription = "Remove from watchlist",
+                                    showBadges = showBadges,
                                     onAction = { onRemoveFromWatchlist(item.itemId, item.mediaType) },
                                     onOpen = {
                                         navController.navigate(
@@ -192,6 +199,7 @@ private fun WishListScreenComponent(
                                     modifier = Modifier.weight(1f),
                                     actionIcon = Icons.Default.Check,
                                     actionDescription = "Unmark watched",
+                                    showBadges = showBadges,
                                     onAction = { onUnmarkWatched(item.itemId, item.mediaType) },
                                     onOpen = {
                                         navController.navigate(
@@ -329,6 +337,7 @@ private fun WishCard(
     modifier: Modifier = Modifier,
     actionIcon: androidx.compose.ui.graphics.vector.ImageVector,
     actionDescription: String,
+    showBadges: Boolean,
     onAction: () -> Unit,
     onOpen: () -> Unit
 ) {
@@ -371,6 +380,23 @@ private fun WishCard(
                     tint = Color.White,
                     modifier = Modifier.size(17.dp)
                 )
+            }
+            if (showBadges && item.watched) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(10.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF2E7D32).copy(alpha = 0.9f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "WATCHED",
+                        color = Color.White,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
         Text(

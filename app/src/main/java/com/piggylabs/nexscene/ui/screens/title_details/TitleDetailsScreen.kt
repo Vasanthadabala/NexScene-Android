@@ -1,5 +1,6 @@
 package com.piggylabs.nexscene.ui.screens.title_details
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
@@ -21,8 +22,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
@@ -36,6 +39,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +50,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,6 +60,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.piggylabs.nexscene.data.model.CastPerson
+import com.piggylabs.nexscene.data.model.CommunityReview
+import com.piggylabs.nexscene.data.local.db.AppDataBase
 import com.piggylabs.nexscene.data.model.ProviderInfoDto
 import com.piggylabs.nexscene.data.model.TitleCardDto
 import com.piggylabs.nexscene.data.model.TitleDetailsDto
@@ -79,6 +89,16 @@ fun TitleDetailsScreen(
     details: TitleItemDetails
 ) {
     val context = LocalContext.current
+    val prefs = context.getSharedPreferences("MY_PRE", Context.MODE_PRIVATE)
+    val showBadges = prefs.getBoolean("show_watched_badge", true)
+    val shouldAutoMarkWatched = prefs.getBoolean("auto_mark_watched", true)
+    val watchedItems by AppDataBase.getDatabase(context)
+        .titleStateDao()
+        .observeWatchedItems()
+        .collectAsState(initial = emptyList())
+    val watchedKeys = remember(watchedItems) {
+        watchedItems.map { "${it.mediaType}-${it.itemId}" }.toSet()
+    }
     val viewModel: TitleDetailsViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
 
@@ -116,6 +136,13 @@ fun TitleDetailsScreen(
                 similarData = similarData,
                 trailerVideoId = uiState.trailerVideoId,
                 trailerUrl = uiState.trailerUrl,
+                communityAverageRating = uiState.communityAverageRating,
+                communityRatingCount = uiState.communityRatingCount,
+                communityReviews = uiState.communityReviews,
+                communityReviewSort = uiState.communityReviewSort,
+                isSubmittingCommunityReview = uiState.isSubmittingCommunityReview,
+                communitySubmitStatus = uiState.communitySubmitStatus,
+                currentUserId = uiState.currentUserId,
                 userRating = uiState.userRating,
                 inWatchlist = uiState.inWatchlist,
                 watched = uiState.watched,
@@ -125,7 +152,8 @@ fun TitleDetailsScreen(
                         mediaType = details.mediaType,
                         title = details.title,
                         posterUrl = details.posterUrl,
-                        rating = rating
+                        rating = rating,
+                        shouldAutoMarkWatched = shouldAutoMarkWatched
                     )
                 },
                 onToggleWatchlist = {
@@ -143,7 +171,25 @@ fun TitleDetailsScreen(
                         title = details.title,
                         posterUrl = details.posterUrl
                     )
-                }
+                },
+                onSubmitCommunityReview = { rating, comment ->
+                    viewModel.submitCommunityReview(
+                        itemId = details.id,
+                        mediaType = details.mediaType,
+                        rating = rating,
+                        comment = comment
+                    )
+                },
+                onClearCommunityStatus = viewModel::clearCommunitySubmitStatus,
+                onDeleteCommunityReview = {
+                    viewModel.deleteCommunityReview(
+                        itemId = details.id,
+                        mediaType = details.mediaType
+                    )
+                },
+                onCommunityReviewSortChanged = viewModel::setCommunityReviewSort,
+                watchedKeys = watchedKeys,
+                showBadges = showBadges
             )
         }
     }
@@ -160,13 +206,35 @@ fun TitleDetailsScreenComponent(
     similarData: List<TitleCardDto>,
     trailerVideoId: String?,
     trailerUrl: String?,
+    communityAverageRating: Double,
+    communityRatingCount: Int,
+    communityReviews: List<CommunityReview>,
+    communityReviewSort: CommunityReviewSort,
+    isSubmittingCommunityReview: Boolean,
+    communitySubmitStatus: String?,
+    currentUserId: String,
     userRating: Int,
     inWatchlist: Boolean,
     watched: Boolean,
     onRate: (Int) -> Unit,
     onToggleWatchlist: () -> Unit,
-    onToggleWatched: () -> Unit
+    onToggleWatched: () -> Unit,
+    onSubmitCommunityReview: (Int, String) -> Unit,
+    onClearCommunityStatus: () -> Unit,
+    onDeleteCommunityReview: () -> Unit,
+    onCommunityReviewSortChanged: (CommunityReviewSort) -> Unit,
+    watchedKeys: Set<String>,
+    showBadges: Boolean
 ) {
+    val listState = rememberLazyListState()
+    val focusManager = LocalFocusManager.current
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            focusManager.clearFocus(force = true)
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -175,6 +243,7 @@ fun TitleDetailsScreenComponent(
             )
     ) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -184,7 +253,9 @@ fun TitleDetailsScreenComponent(
                     details = details,
                     titleDetails = titleDetails,
                     trailerVideoId = trailerVideoId,
-                    trailerUrl = trailerUrl
+                    trailerUrl = trailerUrl,
+                    communityAverageRating = communityAverageRating,
+                    communityRatingCount = communityRatingCount
                 )
             }
 
@@ -212,9 +283,26 @@ fun TitleDetailsScreenComponent(
             }
 
             item {
+                CommunityReviewsSection(
+                    reviews = communityReviews,
+                    selectedSort = communityReviewSort,
+                    currentUserId = currentUserId,
+                    currentUserRating = userRating,
+                    isSubmitting = isSubmittingCommunityReview,
+                    submitStatus = communitySubmitStatus,
+                    onSubmit = onSubmitCommunityReview,
+                    onClearStatus = onClearCommunityStatus,
+                    onDeleteOwnReview = onDeleteCommunityReview,
+                    onSortChanged = onCommunityReviewSortChanged
+                )
+            }
+
+            item {
                 SimilarTitlesSection(
                     navController = navController,
-                    similarData = similarData
+                    similarData = similarData,
+                    watchedKeys = watchedKeys,
+                    showBadges = showBadges
                 )
             }
         }
@@ -226,7 +314,9 @@ private fun HeroSection(
     details: TitleItemDetails,
     titleDetails: TitleDetailsDto?,
     trailerVideoId: String?,
-    trailerUrl: String?
+    trailerUrl: String?,
+    communityAverageRating: Double,
+    communityRatingCount: Int
 ) {
     val context = LocalContext.current
     val displayTitle = titleDetails?.title?.ifBlank { details.title } ?: details.title
@@ -371,39 +461,20 @@ private fun HeroSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 MetaItem(details.mediaType.uppercase().ifBlank { "MOVIE" })
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "IMDB Rating",
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White.copy(alpha = 0.16f))
-                            .padding(horizontal = 10.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color(0xFFFFD675),
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(modifier = Modifier.size(4.dp))
-                        Text(
-                            displayRating.ifBlank { "8.4" },
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                RatingPill(
+                    label = "TMDB",
+                    value = displayRating.ifBlank { "8.4" },
+                    tint = Color(0xFFFFD675)
+                )
+                RatingPill(
+                    label = "USER",
+                    value = if (communityRatingCount > 0) {
+                        "${String.format("%.1f", communityAverageRating)} (${communityRatingCount})"
+                    } else {
+                        "No ratings"
+                    },
+                    tint = Color(0xFF8AE6FF)
+                )
             }
 
             Spacer(modifier = Modifier.height(18.dp))
@@ -502,6 +573,342 @@ private fun MetaItem(text: String) {
         )
         Spacer(modifier = Modifier.size(6.dp))
         Text(text, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun RatingPill(
+    label: String,
+    value: String,
+    tint: Color
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.14f))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Default.Star,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(12.dp)
+        )
+        Spacer(modifier = Modifier.size(4.dp))
+        Text(
+            "$label $value",
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun CommunityReviewsSection(
+    reviews: List<CommunityReview>,
+    selectedSort: CommunityReviewSort,
+    currentUserId: String,
+    currentUserRating: Int,
+    isSubmitting: Boolean,
+    submitStatus: String?,
+    onSubmit: (Int, String) -> Unit,
+    onClearStatus: () -> Unit,
+    onDeleteOwnReview: () -> Unit,
+    onSortChanged: (CommunityReviewSort) -> Unit
+) {
+    var comment by rememberSaveable { mutableStateOf("") }
+    var isEditingOwnReview by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(submitStatus) {
+        if (submitStatus == "Review posted.") {
+            comment = ""
+            isEditingOwnReview = false
+        }
+        if (submitStatus == "Comment deleted.") {
+            comment = ""
+            isEditingOwnReview = false
+        }
+    }
+
+    Column(
+        modifier = Modifier.padding(horizontal = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            "COMMUNITY REVIEWS",
+            color = appColors().primary,
+            fontWeight = FontWeight.Bold,
+            fontSize = 28.sp,
+            letterSpacing = 1.2.sp
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ReviewSortChip(
+                label = "Latest",
+                selected = selectedSort == CommunityReviewSort.LATEST,
+                onClick = { onSortChanged(CommunityReviewSort.LATEST) }
+            )
+            ReviewSortChip(
+                label = "Top Rated",
+                selected = selectedSort == CommunityReviewSort.TOP_RATED,
+                onClick = { onSortChanged(CommunityReviewSort.TOP_RATED) }
+            )
+            ReviewSortChip(
+                label = "Low Rated",
+                selected = selectedSort == CommunityReviewSort.LOW_RATED,
+                onClick = { onSortChanged(CommunityReviewSort.LOW_RATED) }
+            )
+        }
+
+        if (isEditingOwnReview) {
+            Text(
+                "Editing your review",
+                color = Color(0xFF8AE6FF),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        Text(
+            text = if (currentUserRating > 0) {
+                "Using your rating: $currentUserRating/10"
+            } else {
+                "Rate this title first using the /10 stars above, then post your review."
+            },
+            color = if (currentUserRating > 0) Color.White.copy(alpha = 0.86f) else Color(0xFFFFB3B3),
+            fontSize = 12.sp
+        )
+
+        BasicTextField(
+            value = comment,
+            onValueChange = {
+                comment = it.take(500)
+                onClearStatus()
+            },
+            textStyle = androidx.compose.ui.text.TextStyle(
+                color = Color.White,
+                fontSize = 14.sp
+            ),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White.copy(alpha = 0.05f))
+                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp))
+                .padding(12.dp),
+            decorationBox = { innerTextField ->
+                if (comment.isBlank()) {
+                    Text(
+                        "Share your experience with this title...",
+                        color = Color.White.copy(alpha = 0.52f),
+                        fontSize = 14.sp
+                    )
+                }
+                innerTextField()
+            }
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "${comment.length}/500",
+                color = Color.White.copy(alpha = 0.62f),
+                fontSize = 12.sp
+            )
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (isSubmitting) Color(0xFF5B5B5B) else appColors().primary)
+                    .clickable(enabled = !isSubmitting) {
+                        onSubmit(currentUserRating, comment)
+                    }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    if (isSubmitting) {
+                        "Posting..."
+                    } else if (isEditingOwnReview) {
+                        "Update Review"
+                    } else {
+                        "Post Review"
+                    },
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+        }
+
+        if (!submitStatus.isNullOrBlank()) {
+            Text(
+                submitStatus,
+                color = if (submitStatus == "Review posted.") Color(0xFF8EFFA0) else Color(0xFFFF9C9C),
+                fontSize = 12.sp
+            )
+        }
+
+        if (reviews.isEmpty()) {
+            Text(
+                "No community reviews yet. Be the first one to share.",
+                color = Color.White.copy(alpha = 0.72f),
+                fontSize = 13.sp
+            )
+        } else {
+            reviews.forEach { review ->
+                val isOwnReview = review.userId.isNotBlank() && review.userId == currentUserId
+                CommunityReviewCard(
+                    review = review,
+                    isOwnReview = isOwnReview,
+                    onEditOwnReview = {
+                        comment = review.comment
+                        isEditingOwnReview = true
+                        onClearStatus()
+                    },
+                    onDeleteOwnReview = {
+                        onDeleteOwnReview()
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommunityReviewCard(
+    review: CommunityReview,
+    isOwnReview: Boolean,
+    onEditOwnReview: () -> Unit,
+    onDeleteOwnReview: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White.copy(alpha = 0.05f))
+            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp))
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        if (!review.userPhotoUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = review.userPhotoUrl,
+                contentDescription = review.userName,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    review.userName.firstOrNull()?.uppercase() ?: "A",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    review.userName,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "★ ${review.rating}/10",
+                    color = Color(0xFFFFD675),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    formatReviewTimestamp(review.updatedAtMillis),
+                    color = Color.White.copy(alpha = 0.62f),
+                    fontSize = 11.sp
+                )
+            }
+            Text(
+                review.comment,
+                color = Color.White.copy(alpha = 0.88f),
+                fontSize = 13.sp,
+                lineHeight = 19.sp
+            )
+            if (isOwnReview) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Edit",
+                        color = Color(0xFF8AE6FF),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable(onClick = onEditOwnReview)
+                    )
+                    Text(
+                        "Delete",
+                        color = Color(0xFFFF9C9C),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable(onClick = onDeleteOwnReview)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReviewSortChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (selected) appColors().primary.copy(alpha = 0.8f)
+                else Color.White.copy(alpha = 0.09f)
+            )
+            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Text(
+            label,
+            color = if (selected) Color.Black else Color.White.copy(alpha = 0.9f),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+private fun formatReviewTimestamp(updatedAtMillis: Long): String {
+    if (updatedAtMillis <= 0L) return "now"
+    val diff = (System.currentTimeMillis() - updatedAtMillis).coerceAtLeast(0L)
+    val minute = 60_000L
+    val hour = 60 * minute
+    val day = 24 * hour
+    return when {
+        diff < minute -> "now"
+        diff < hour -> "${diff / minute}m ago"
+        diff < day -> "${diff / hour}h ago"
+        else -> "${diff / day}d ago"
     }
 }
 
@@ -884,7 +1291,9 @@ private fun CastSection(castData: List<CastPerson>) {
 @Composable
 private fun SimilarTitlesSection(
     navController: NavHostController,
-    similarData: List<TitleCardDto>
+    similarData: List<TitleCardDto>,
+    watchedKeys: Set<String>,
+    showBadges: Boolean
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
@@ -946,14 +1355,28 @@ private fun SimilarTitlesSection(
                                     .clip(RoundedCornerShape(16.dp))
                             )
                         }
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .clip(RoundedCornerShape(9.dp))
-                                .background(Color.Black.copy(alpha = 0.35f))
-                                .padding(horizontal = 6.dp, vertical = 3.dp)
-                        ) {
-                            Text(title.rating, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        if (showBadges) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .clip(RoundedCornerShape(9.dp))
+                                    .background(Color.Black.copy(alpha = 0.35f))
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            ) {
+                                Text(title.rating, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        if (showBadges && watchedKeys.contains("${title.mediaType}-${title.id}")) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(8.dp)
+                                    .clip(RoundedCornerShape(9.dp))
+                                    .background(Color(0xFF2E7D32).copy(alpha = 0.9f))
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            ) {
+                                Text("WATCHED", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                     Text(title.title.limitChars(18), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)

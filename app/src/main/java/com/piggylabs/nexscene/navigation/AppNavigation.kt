@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import com.piggylabs.nexscene.navigation.graphs.exploreScreenGraph
 import com.piggylabs.nexscene.navigation.graphs.homeScreenGraph
+import com.piggylabs.nexscene.navigation.graphs.notificationScreenGraph
 import com.piggylabs.nexscene.navigation.graphs.onBoardingScreenGraph
 import com.piggylabs.nexscene.navigation.graphs.profileScreenGraph
 import com.piggylabs.nexscene.navigation.graphs.searchScreenGraph
@@ -26,6 +27,7 @@ fun AppNavigation(context: Context){
         homeScreenGraph(navController = navController)
         titleDetailsScreenGraph(navController = navController)
         exploreScreenGraph(navController = navController)
+        notificationScreenGraph(navController = navController)
 
         searchScreenGraph(navController = navController)
 
@@ -40,5 +42,6 @@ fun AppNavigation(context: Context){
 fun getStartDestination(context: Context): String {
     val prefs = context.getSharedPreferences("MY_PRE", Context.MODE_PRIVATE)
     val isLoggedIn = prefs.getBoolean("is_logged_in", false)
-    return if (isLoggedIn) Home.route else OnBoarding.route
+    val guestAccessEnabled = prefs.getBoolean("guest_access_enabled", false)
+    return if (isLoggedIn || guestAccessEnabled) Home.route else OnBoarding.route
 }

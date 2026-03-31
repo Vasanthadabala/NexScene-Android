@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      // Allow all nested docs/subcollections under this user
+      match /{document=**} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // Community reviews + rating summary for titles
+    match /titles/{titleId} {
+      match /reviews/{userId} {
+        // Any signed-in user can read community reviews
+        allow read: if signedIn();
+
+        // A user can only create/update their own review doc
+        allow create, update: if isOwner(userId)
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.userName is string
+          && request.resource.data.userName.size() > 0
+          && request.resource.data.userName.size() <= 80
+          && request.resource.data.comment is string
+          && request.resource.data.comment.size() >= 0
+          && request.resource.data.comment.size() <= 500
+          && request.resource.data.rating is int
+          && request.resource.data.rating >= 1
+          && request.resource.data.rating <= 10
+          && request.resource.data.updatedAtMillis is int;
+
+        // Owner can delete their own review
+        allow delete: if isOwner(userId);
+      }
+
+      match /meta/{docId} {
+        // Anyone signed in can read rating summary
+        allow read: if signedIn();
+
+        // Allow signed-in clients to update stats used by this app
+        allow create, update: if signedIn()
+          && docId == "stats"
+          && request.resource.data.itemId is int
+          && request.resource.data.mediaType is string
+          && request.resource.data.ratingSum is number
+          && request.resource.data.ratingCount is int
+          && request.resource.data.ratingCount >= 0
+          && request.resource.data.avgRating is number
+          && request.resource.data.avgRating >= 0
+          && request.resource.data.avgRating <= 10
+          && request.resource.data.updatedAtMillis is int;
+      }
+    }
+  }
+}
