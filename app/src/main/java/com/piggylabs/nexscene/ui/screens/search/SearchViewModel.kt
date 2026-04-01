@@ -1,5 +1,6 @@
 package com.piggylabs.nexscene.ui.screens.search
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.piggylabs.nexscene.data.api.MovieApiResponse
@@ -20,6 +21,7 @@ import kotlinx.coroutines.withTimeout
 data class SearchUiState(
     val query: String = "",
     val isLoading: Boolean = false,
+    val isTrendingLoading: Boolean = true,
     val results: List<TitleCardDto> = emptyList(),
     val trending: List<TitleCardDto> = emptyList(),
     val error: String? = null
@@ -29,7 +31,8 @@ class SearchViewModel(
     private val repository: MovieRepository = MovieRepository()
 ) : ViewModel() {
     private companion object {
-        const val REQUEST_TIMEOUT_MS = 10_000L
+        const val REQUEST_TIMEOUT_MS = 45_000L
+        const val TAG = "SEARCH_CLOUD"
     }
 
     private val _uiState = MutableStateFlow(SearchUiState())
@@ -118,56 +121,76 @@ class SearchViewModel(
                 results = merged,
                 error = errorMessage
             )
+            if (errorMessage == null) {
+                Log.d(TAG, "Search success query='$query' results=${merged.size}")
+            } else {
+                Log.e(TAG, "Search partial/failed query='$query' error=$errorMessage")
+            }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 error = e.message ?: "Unable to search right now"
             )
+            Log.e(TAG, "Search exception query='$query' message=${e.message}", e)
         }
     }
 
     private suspend fun loadTrending() {
-        val moviesDeferred = viewModelScope.async { safeMovieCall { repository.getPopularMovies() } }
-        val tvDeferred = viewModelScope.async { safeTvCall { repository.getPopularTvShows() } }
+        _uiState.value = _uiState.value.copy(isTrendingLoading = true, error = null)
+        try {
+            val moviesDeferred = viewModelScope.async { safeMovieCall { repository.getPopularMovies() } }
+            val tvDeferred = viewModelScope.async { safeTvCall { repository.getPopularTvShows() } }
 
-        val movieResponse = moviesDeferred.await()
-        val tvResponse = tvDeferred.await()
+            val movieResponse = moviesDeferred.await()
+            val tvResponse = tvDeferred.await()
 
-        val movieResults = if (movieResponse is MovieApiResponse.Success) {
-            movieResponse.data.map { movie ->
-                TitleCardDto(
-                    id = movie.id,
-                    title = movie.title,
-                    subtitle = "Movie",
-                    rating = String.format("%.1f", movie.vote_average),
-                    posterUrl = repository.posterUrl(movie.poster_path),
-                    overview = movie.overview,
-                    mediaType = "movie"
-                )
-            }
-        } else emptyList()
+            val movieResults = if (movieResponse is MovieApiResponse.Success) {
+                movieResponse.data.map { movie ->
+                    TitleCardDto(
+                        id = movie.id,
+                        title = movie.title,
+                        subtitle = "Movie",
+                        rating = String.format("%.1f", movie.vote_average),
+                        posterUrl = repository.posterUrl(movie.poster_path),
+                        overview = movie.overview,
+                        mediaType = "movie"
+                    )
+                }
+            } else emptyList()
 
-        val tvResults = if (tvResponse is TvApiResponse.Success) {
-            tvResponse.data.map { tv ->
-                TitleCardDto(
-                    id = tv.id,
-                    title = tv.name,
-                    subtitle = "TV Show",
-                    rating = String.format("%.1f", tv.vote_average),
-                    posterUrl = repository.posterUrl(tv.poster_path),
-                    overview = tv.overview,
-                    mediaType = "tv"
-                )
-            }
-        } else emptyList()
+            val tvResults = if (tvResponse is TvApiResponse.Success) {
+                tvResponse.data.map { tv ->
+                    TitleCardDto(
+                        id = tv.id,
+                        title = tv.name,
+                        subtitle = "TV Show",
+                        rating = String.format("%.1f", tv.vote_average),
+                        posterUrl = repository.posterUrl(tv.poster_path),
+                        overview = tv.overview,
+                        mediaType = "tv"
+                    )
+                }
+            } else emptyList()
 
-        val trending = (movieResults + tvResults)
-            .sortedByDescending { it.rating.toDoubleOrNull() ?: 0.0 }
-            .distinctBy { "${it.mediaType}-${it.id}" }
-            .take(10)
+            val trending = (movieResults + tvResults)
+                .sortedByDescending { it.rating.toDoubleOrNull() ?: 0.0 }
+                .distinctBy { "${it.mediaType}-${it.id}" }
+                .take(10)
 
-        _uiState.value = _uiState.value.copy(trending = trending)
+            _uiState.value = _uiState.value.copy(
+                trending = trending,
+                isTrendingLoading = false
+            )
+            Log.d(TAG, "Trending loaded items=${trending.size}")
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            _uiState.value = _uiState.value.copy(
+                isTrendingLoading = false,
+                error = e.message ?: "Unable to load trending titles."
+            )
+            Log.e(TAG, "Trending load failed message=${e.message}", e)
+        }
     }
 
     private suspend fun safeMovieCall(block: suspend () -> MovieApiResponse): MovieApiResponse {

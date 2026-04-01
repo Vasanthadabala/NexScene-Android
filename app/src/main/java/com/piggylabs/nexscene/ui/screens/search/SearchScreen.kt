@@ -154,6 +154,7 @@ fun SearchScreen(navController: NavHostController) {
                 query = state.query,
                 error = state.error,
                 isLoading = state.isLoading,
+                isTrendingLoading = state.isTrendingLoading,
                 results = state.results,
                 recentItems = recentItems,
                 trends = trends,
@@ -173,6 +174,7 @@ private fun SearchScreenComponent(
     query: String,
     error: String?,
     isLoading: Boolean,
+    isTrendingLoading: Boolean,
     results: List<TitleCardDto>,
     recentItems: List<String>,
     trends: List<TrendCard>,
@@ -226,11 +228,12 @@ private fun SearchScreenComponent(
                 item { RecentlySearchedSection(recentItems) }
             }
             item { ExploreGenresSection(navController = navController) }
-            if (trends.isNotEmpty()) {
+            if (isTrendingLoading || trends.isNotEmpty()) {
                 item {
                     TrendingSection(
                         navController = navController,
                         trends = trends,
+                        isLoading = isTrendingLoading,
                         watchedKeys = watchedKeys,
                         showBadges = showBadges
                     )
@@ -466,6 +469,7 @@ private fun ExploreGenresSection(navController: NavHostController) {
 private fun TrendingSection(
     navController: NavHostController,
     trends: List<TrendCard>,
+    isLoading: Boolean,
     watchedKeys: Set<String>,
     showBadges: Boolean
 ) {
@@ -478,85 +482,107 @@ private fun TrendingSection(
             Text("Trending Now", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
         }
 
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(trends) { card ->
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(width = 170.dp, height = 255.dp)
-                            .clickable {
-                                if (card.id != 0 && card.mediaType.isNotBlank()) {
-                                    navController.navigate(
-                                        TitleDetails.createRoute(
-                                            title = card.title,
-                                            subtitle = card.meta,
-                                            rating = card.rating,
-                                            overview = card.overview,
-                                            posterUrl = card.posterUrl,
-                                            mediaType = card.mediaType,
-                                            itemId = card.id
-                                        )
-                                    )
-                                }
-                            }
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Brush.verticalGradient(card.gradient))
-                            .border(0.1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
-                            .padding(0.dp)
-                    ) {
-                        if (card.posterUrl != null) {
-                            AsyncImage(
-                                model = card.posterUrl,
-                                contentDescription = card.title,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .clip(RoundedCornerShape(16.dp))
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(
-                                                Color.Black.copy(alpha = 0.12f),
-                                                Color.Black.copy(alpha = 0.42f)
+        if (isLoading && trends.isEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(6) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 170.dp, height = 255.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .border(0.1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(width = 130.dp, height = 14.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                        )
+                    }
+                }
+            }
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(trends) { card ->
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 170.dp, height = 255.dp)
+                                .clickable {
+                                    if (card.id != 0 && card.mediaType.isNotBlank()) {
+                                        navController.navigate(
+                                            TitleDetails.createRoute(
+                                                title = card.title,
+                                                subtitle = card.meta,
+                                                rating = card.rating,
+                                                overview = card.overview,
+                                                posterUrl = card.posterUrl,
+                                                mediaType = card.mediaType,
+                                                itemId = card.id
                                             )
                                         )
-                                    )
-                            )
-                        }
-                        if (showBadges) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color.Black.copy(alpha = 0.32f))
-                                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("★", color = Color.White, fontSize = 10.sp)
-                                    Spacer(modifier = Modifier.size(4.dp))
-                                    Text(card.rating, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Brush.verticalGradient(card.gradient))
+                                .border(0.1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                                .padding(0.dp)
+                        ) {
+                            if (card.posterUrl != null) {
+                                AsyncImage(
+                                    model = card.posterUrl,
+                                    contentDescription = card.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .clip(RoundedCornerShape(16.dp))
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .matchParentSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(
+                                                    Color.Black.copy(alpha = 0.12f),
+                                                    Color.Black.copy(alpha = 0.42f)
+                                                )
+                                            )
+                                        )
+                                )
+                            }
+                            if (showBadges) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.Black.copy(alpha = 0.32f))
+                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("★", color = Color.White, fontSize = 10.sp)
+                                        Spacer(modifier = Modifier.size(4.dp))
+                                        Text(card.rating, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            if (showBadges && (card.watched || watchedKeys.contains("${card.mediaType}-${card.id}"))) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .padding(8.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFF2E7D32).copy(alpha = 0.9f))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("WATCHED", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
-                        if (showBadges && (card.watched || watchedKeys.contains("${card.mediaType}-${card.id}"))) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopStart)
-                                    .padding(8.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF2E7D32).copy(alpha = 0.9f))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("WATCHED", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
+                        Text(card.title.limitChars(18), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                     }
-                    Text(card.title.limitChars(18), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                 }
             }
         }

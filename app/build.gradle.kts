@@ -37,8 +37,8 @@ android {
         applicationId = "com.piggylabs.nexscene"
         minSdk = 29
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.3"
+        versionCode = 4
+        versionName = "1.4"
         buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

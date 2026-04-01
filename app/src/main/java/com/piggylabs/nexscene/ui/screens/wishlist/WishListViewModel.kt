@@ -1,6 +1,7 @@
 package com.piggylabs.nexscene.ui.screens.wishlist
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.piggylabs.nexscene.data.local.TitleStateLocalDataSource
@@ -17,6 +18,9 @@ data class WishListUiState(
 )
 
 class WishListViewModel : ViewModel() {
+    private companion object {
+        const val TAG = "WISHLIST_CLOUD"
+    }
 
     private val _uiState = MutableStateFlow(WishListUiState())
     val uiState: StateFlow<WishListUiState> = _uiState.asStateFlow()
@@ -39,6 +43,10 @@ class WishListViewModel : ViewModel() {
                 )
             }.collect { state ->
                 _uiState.value = state
+                Log.d(
+                    TAG,
+                    "Local sync watchlist=${state.watchlistItems.size} watched=${state.watchedItems.size}"
+                )
             }
         }
     }
@@ -47,6 +55,7 @@ class WishListViewModel : ViewModel() {
         val local = localDataSource ?: return
         viewModelScope.launch {
             local.setWatchlist(itemId = itemId, mediaType = mediaType, inWatchlist = false)
+            Log.d(TAG, "Removed from watchlist itemId=$itemId mediaType=$mediaType")
         }
     }
 
@@ -54,6 +63,7 @@ class WishListViewModel : ViewModel() {
         val local = localDataSource ?: return
         viewModelScope.launch {
             local.setWatched(itemId = itemId, mediaType = mediaType, watched = false)
+            Log.d(TAG, "Unmarked watched itemId=$itemId mediaType=$mediaType")
         }
     }
 }

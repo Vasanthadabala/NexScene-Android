@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -72,19 +74,46 @@ fun ExploreScreen(
         ) {
             when {
                 uiState.isLoading -> {
-                    Text(
-                        text = "Loading...",
-                        color = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator()
+                        Text(
+                            text = "Loading...",
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
                 }
 
-                uiState.error != null -> {
-                    Text(
-                        text = uiState.error ?: "Unable to load",
-                        color = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                uiState.error != null && uiState.items.isEmpty()-> {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = uiState.error ?: "Unable to load",
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                        Button(
+                            onClick = {
+                                viewModel.load(
+                                    source = source,
+                                    mediaType = mediaType,
+                                    movieGenreId = movieGenreId,
+                                    tvGenreId = tvGenreId
+                                )
+                            }
+                        ) {
+                            Text("Retry")
+                        }
+                    }
                 }
 
                 else -> {

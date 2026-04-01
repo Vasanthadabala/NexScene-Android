@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -105,6 +106,14 @@ fun HomeScreen(navController: NavHostController) {
     }
     val selectedTab = remember { mutableStateOf(HomeContentTab.Home) }
 
+    LaunchedEffect(selectedTab.value) {
+        when (selectedTab.value) {
+            HomeContentTab.Home -> Unit
+            HomeContentTab.Movies -> viewModel.loadMoviesTabContent()
+            HomeContentTab.Tvshows -> viewModel.loadTvTabContent()
+        }
+    }
+
     val movieDynamicCards = state.movies.toMoviePosterCards(viewModel::posterUrl, watchedKeys)
     val tvDynamicCards = state.tvShows.toTvPosterCards(viewModel::posterUrl, watchedKeys)
     val topRatedMovieCards = state.topRatedMovies.toMoviePosterCards(viewModel::posterUrl, watchedKeys)
@@ -164,7 +173,7 @@ fun HomeScreen(navController: NavHostController) {
         HomeContentTab.Tvshows -> horrorTvCards.take(20)
     }
     val sciFiFantasyTitles = when (selectedTab.value) {
-        HomeContentTab.Home -> sciFiFantasyMixed
+        HomeContentTab.Home -> emptyList()
         HomeContentTab.Movies -> sciFiFantasyMovies
         HomeContentTab.Tvshows -> fantasyTvCards.take(20)
     }
@@ -210,6 +219,7 @@ fun HomeScreen(navController: NavHostController) {
                         sciFiFantasyCards = sciFiFantasyTitles,
                         selectedTab = selectedTab.value,
                         onTabSelected = { selectedTab.value = it },
+                        isLoading = state.isLoading,
                         showBadges = showBadges,
                         onWatchHeroTrailer = { selected ->
                             viewModel.fetchTrailer(
@@ -245,6 +255,7 @@ private fun HomeScreenComponent(
     sciFiFantasyCards: List<PosterCard>,
     selectedTab: HomeContentTab,
     onTabSelected: (HomeContentTab) -> Unit,
+    isLoading: Boolean,
     showBadges: Boolean,
     onWatchHeroTrailer: (PosterCard) -> Unit
 ) {
@@ -275,6 +286,7 @@ private fun HomeScreenComponent(
                 }
                 HeroCard(
                     featuredCard = heroFeatured,
+                    isLoading = isLoading,
                     onOpenTitle = {
                         heroFeatured?.let { selected ->
                             navController.navigate(selected.toTitleDetailsRoute())
@@ -303,7 +315,14 @@ private fun HomeScreenComponent(
                         }
                     )
                 }
-                item { HorizontalPosterRow(cards = movieCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+                item {
+                    HorizontalPosterRow(
+                        cards = movieCards,
+                        showBadges = showBadges,
+                        isLoading = isLoading,
+                        onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }
+                    )
+                }
                 item {
                     SectionTitle(
                         title = "Top Rated Movies",
@@ -319,7 +338,14 @@ private fun HomeScreenComponent(
                         }
                     )
                 }
-                item { HorizontalPosterRow(cards = topRatedMovieCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+                item {
+                    HorizontalPosterRow(
+                        cards = topRatedMovieCards,
+                        showBadges = showBadges,
+                        isLoading = isLoading,
+                        onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }
+                    )
+                }
             }
             item { EditorsPickCard(palette = appColors()) }
             item { PremiumCard(palette = appColors()) }
@@ -339,7 +365,14 @@ private fun HomeScreenComponent(
                         }
                     )
                 }
-                item { HorizontalPosterRow(cards = tvCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+                item {
+                    HorizontalPosterRow(
+                        cards = tvCards,
+                        showBadges = showBadges,
+                        isLoading = isLoading,
+                        onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }
+                    )
+                }
                 item {
                     SectionTitle(
                         title = "Top Rated TV Shows",
@@ -355,98 +388,142 @@ private fun HomeScreenComponent(
                         }
                     )
                 }
-                item { HorizontalPosterRow(cards = topRatedTvCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
+                item {
+                    HorizontalPosterRow(
+                        cards = topRatedTvCards,
+                        showBadges = showBadges,
+                        isLoading = isLoading,
+                        onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }
+                    )
+                }
             }
-            item {
-                SectionTitle(
-                    title = "Drama",
-                    trailing = "View All",
-                    onTrailingClick = {
-                        navController.navigate(
-                            Explore.createRoute(
-                                title = "Drama",
-                                source = "genre",
-                                mediaType = genreMediaType,
-                                movieGenreId = 18,
-                                tvGenreId = 18
+            if (selectedTab != HomeContentTab.Home) {
+                item {
+                    SectionTitle(
+                        title = "Drama",
+                        trailing = "View All",
+                        onTrailingClick = {
+                            navController.navigate(
+                                Explore.createRoute(
+                                    title = "Drama",
+                                    source = "genre",
+                                    mediaType = genreMediaType,
+                                    movieGenreId = 18,
+                                    tvGenreId = 18
+                                )
                             )
-                        )
-                    }
-                )
-            }
-            item { HorizontalPosterRow(cards = dramaCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
-            item {
-                SectionTitle(
-                    title = "Comedy",
-                    trailing = "View All",
-                    onTrailingClick = {
-                        navController.navigate(
-                            Explore.createRoute(
-                                title = "Comedy",
-                                source = "genre",
-                                mediaType = genreMediaType,
-                                movieGenreId = 35,
-                                tvGenreId = 35
+                        }
+                    )
+                }
+                item {
+                    HorizontalPosterRow(
+                        cards = dramaCards,
+                        showBadges = showBadges,
+                        isLoading = isLoading,
+                        onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }
+                    )
+                }
+                item {
+                    SectionTitle(
+                        title = "Comedy",
+                        trailing = "View All",
+                        onTrailingClick = {
+                            navController.navigate(
+                                Explore.createRoute(
+                                    title = "Comedy",
+                                    source = "genre",
+                                    mediaType = genreMediaType,
+                                    movieGenreId = 35,
+                                    tvGenreId = 35
+                                )
                             )
-                        )
-                    }
-                )
-            }
-            item { HorizontalPosterRow(cards = comedyCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
-            item {
-                SectionTitle(
-                    title = "Action",
-                    trailing = "View All",
-                    onTrailingClick = {
-                        navController.navigate(
-                            Explore.createRoute(
-                                title = "Action",
-                                source = "genre",
-                                mediaType = genreMediaType,
-                                movieGenreId = 28,
-                                tvGenreId = 10759
+                        }
+                    )
+                }
+                item {
+                    HorizontalPosterRow(
+                        cards = comedyCards,
+                        showBadges = showBadges,
+                        isLoading = isLoading,
+                        onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }
+                    )
+                }
+                item {
+                    SectionTitle(
+                        title = "Action",
+                        trailing = "View All",
+                        onTrailingClick = {
+                            navController.navigate(
+                                Explore.createRoute(
+                                    title = "Action",
+                                    source = "genre",
+                                    mediaType = genreMediaType,
+                                    movieGenreId = 28,
+                                    tvGenreId = 10759
+                                )
                             )
-                        )
-                    }
-                )
-            }
-            item { HorizontalPosterRow(cards = actionCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
-            item {
-                SectionTitle(
-                    title = "Horror",
-                    trailing = "View All",
-                    onTrailingClick = {
-                        navController.navigate(
-                            Explore.createRoute(
-                                title = "Horror",
-                                source = "genre",
-                                mediaType = genreMediaType,
-                                movieGenreId = 27,
-                                tvGenreId = 9648
+                        }
+                    )
+                }
+                item {
+                    HorizontalPosterRow(
+                        cards = actionCards,
+                        showBadges = showBadges,
+                        isLoading = isLoading,
+                        onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }
+                    )
+                }
+                item {
+                    SectionTitle(
+                        title = "Horror",
+                        trailing = "View All",
+                        onTrailingClick = {
+                            navController.navigate(
+                                Explore.createRoute(
+                                    title = "Horror",
+                                    source = "genre",
+                                    mediaType = genreMediaType,
+                                    movieGenreId = 27,
+                                    tvGenreId = 9648
+                                )
                             )
-                        )
-                    }
-                )
-            }
-            item { HorizontalPosterRow(cards = horrorCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
-            item {
-                SectionTitle(
-                    title = "Science Fiction/Fantasy",
-                    trailing = "View All",
-                    onTrailingClick = {
-                        navController.navigate(
-                            Explore.createRoute(
-                                title = "Science Fiction/Fantasy",
-                                source = "genre",
-                                mediaType = genreMediaType,
-                                movieGenreId = 878,
-                                tvGenreId = 10765
+                        }
+                    )
+                }
+                item {
+                    HorizontalPosterRow(
+                        cards = horrorCards,
+                        showBadges = showBadges,
+                        isLoading = isLoading,
+                        onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }
+                    )
+                }
+                item {
+                    SectionTitle(
+                        title = "Science Fiction/Fantasy",
+                        trailing = "View All",
+                        onTrailingClick = {
+                            navController.navigate(
+                                Explore.createRoute(
+                                    title = "Science Fiction/Fantasy",
+                                    source = "genre",
+                                    mediaType = genreMediaType,
+                                    movieGenreId = 878,
+                                    tvGenreId = 10765
+                                )
                             )
-                        )
-                    }
-                )
+                        }
+                    )
+                }
+                item {
+                    HorizontalPosterRow(
+                        cards = sciFiFantasyCards,
+                        showBadges = showBadges,
+                        isLoading = isLoading,
+                        onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }
+                    )
+                }
             }
-            item { HorizontalPosterRow(cards = sciFiFantasyCards, showBadges = showBadges, onCardClick = { navController.navigate(it.toTitleDetailsRoute()) }) }
         }
     }
 }
@@ -620,6 +697,7 @@ private fun TopHeader(navController: NavHostController) {
 @Composable
 private fun HeroCard(
     featuredCard: PosterCard?,
+    isLoading: Boolean,
     onOpenTitle: () -> Unit,
     onWatchTrailer: () -> Unit
 ) {
@@ -674,6 +752,38 @@ private fun HeroCard(
                 .padding(horizontal = 12.dp, vertical = 8.dp)
                 .align(Alignment.BottomStart)
         ) {
+            if (isLoading && featuredCard == null) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 170.dp, height = 22.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.18f))
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Box(
+                    modifier = Modifier
+                        .size(width = 260.dp, height = 34.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.16f))
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Box(
+                    modifier = Modifier
+                        .size(width = 220.dp, height = 14.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.14f))
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Box(
+                    modifier = Modifier
+                        .size(width = 150.dp, height = 38.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color.White.copy(alpha = 0.18f))
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                return@Column
+            }
+
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Chip(label = "EXCLUSIVE", bg = Color(0xFFF6D24E), fg = Color.Black)
                 if (!featuredCard?.subtitle.isNullOrBlank()) {
@@ -766,8 +876,36 @@ private fun SectionTitle(
 private fun HorizontalPosterRow(
     cards: List<PosterCard>,
     showBadges: Boolean,
+    isLoading: Boolean,
     onCardClick: (PosterCard) -> Unit
 ) {
+    if (isLoading && cards.isEmpty()) {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(6) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 180.dp, height = 250.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White.copy(alpha = 0.10f))
+                            .border(0.1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(width = 140.dp, height = 14.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White.copy(alpha = 0.10f))
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        return
+    }
+
     LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(cards) { card ->
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

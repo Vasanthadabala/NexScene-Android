@@ -2,18 +2,17 @@ package com.piggylabs.nexscene.data.api
 
 import android.util.Log
 import com.piggylabs.nexscene.BuildConfig
-import com.piggylabs.nexscene.data.model.CastDto
 import com.piggylabs.nexscene.data.model.CastPerson
 import com.piggylabs.nexscene.data.model.CreditsResponse
-import com.piggylabs.nexscene.data.model.MovieDto
 import com.piggylabs.nexscene.data.model.MovieDetailsDto
+import com.piggylabs.nexscene.data.model.MovieDto
 import com.piggylabs.nexscene.data.model.MovieResponse
 import com.piggylabs.nexscene.data.model.ProviderInfoDto
-import com.piggylabs.nexscene.data.model.TitleDetailsDto
 import com.piggylabs.nexscene.data.model.TitleCardDto
+import com.piggylabs.nexscene.data.model.TitleDetailsDto
 import com.piggylabs.nexscene.data.model.TitleWatchProvidersDto
-import com.piggylabs.nexscene.data.model.TvDto
 import com.piggylabs.nexscene.data.model.TvDetailsDto
+import com.piggylabs.nexscene.data.model.TvDto
 import com.piggylabs.nexscene.data.model.TvResponse
 import com.piggylabs.nexscene.data.model.VideoResponse
 import com.piggylabs.nexscene.data.model.WatchProvidersResponse
@@ -67,7 +66,7 @@ object MovieApi {
     private val json = KtorClientProvider.json
 
     private const val BASE_URL = "https://api.themoviedb.org/3/"
-    private const val POSTER_BASE_URL = "https://image.tmdb.org/t/p/original"
+    private const val POSTER_BASE_URL = "https://image.tmdb.org/t/p/w500"
     private const val LOGO_BASE_URL = "https://image.tmdb.org/t/p/w500"
 
     private fun logRequest(endpoint: String, extras: String = "") {
@@ -92,7 +91,14 @@ object MovieApi {
         Log.d("TMDB_IMAGE", "Original path: $safePath")
 
         if (safePath.isBlank()) return null
-        if (safePath.startsWith("http://") || safePath.startsWith("https://")) return safePath
+        if (safePath.startsWith("http://") || safePath.startsWith("https://")) {
+            val normalizedRemote = safePath.replace(
+                Regex("""https?://image\.tmdb\.org/t/p/[^/]+/"""),
+                "$POSTER_BASE_URL/"
+            )
+            Log.d("TMDB_IMAGE", "Final remote poster URL: $normalizedRemote")
+            return normalizedRemote
+        }
 
         val normalizedPath = if (safePath.startsWith("/")) safePath else "/$safePath"
         val url = "$POSTER_BASE_URL$normalizedPath"

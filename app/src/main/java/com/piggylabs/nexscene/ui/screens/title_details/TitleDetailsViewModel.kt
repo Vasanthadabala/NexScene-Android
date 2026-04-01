@@ -1,6 +1,7 @@
 package com.piggylabs.nexscene.ui.screens.title_details
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -37,6 +38,8 @@ enum class CommunityReviewSort {
 
 data class TitleDetailsUiState(
     val isLoading: Boolean = false,
+    val isCastLoading: Boolean = false,
+    val isSimilarLoading: Boolean = false,
     val cast: List<CastPerson> = emptyList(),
     val similar: List<TitleCardDto> = emptyList(),
     val details: TitleDetailsDto? = null,
@@ -61,7 +64,8 @@ class TitleDetailsViewModel(
     private val communityRepository: CommunityReviewRepository = CommunityReviewRepository()
 ) : ViewModel() {
     private companion object {
-        const val REQUEST_TIMEOUT_MS = 10_000L
+        const val REQUEST_TIMEOUT_MS = 45_000L
+        const val TAG = "TITLE_CLOUD"
     }
 
     private val _uiState = MutableStateFlow(TitleDetailsUiState())
@@ -88,7 +92,12 @@ class TitleDetailsViewModel(
         val local = localDataSource ?: return
         observeCommunity(itemId = itemId, mediaType = mediaType)
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                isCastLoading = true,
+                isSimilarLoading = true,
+                error = null
+            )
             try {
                 val castDeferred = async { safeCastCall { repository.getLeadingCast(itemId = itemId, mediaType = mediaType) } }
                 val similarDeferred = async { safeSimilarCall { repository.getSimilarTitles(itemId = itemId, mediaType = mediaType) } }
@@ -137,6 +146,8 @@ class TitleDetailsViewModel(
 
                 _uiState.value = TitleDetailsUiState(
                     isLoading = false,
+                    isCastLoading = false,
+                    isSimilarLoading = false,
                     cast = cast,
                     similar = similar,
                     details = detailsData,
@@ -155,6 +166,17 @@ class TitleDetailsViewModel(
                     watched = savedState.watched,
                     error = errorMessage
                 )
+                if (errorMessage == null) {
+                    Log.d(
+                        TAG,
+                        "Load success itemId=$itemId mediaType=$mediaType cast=${cast.size} similar=${similar.size} details=${detailsData != null} providers=${providersData != null} trailer=${trailerVideoId != null}"
+                    )
+                } else {
+                    Log.e(
+                        TAG,
+                        "Load partial/failed itemId=$itemId mediaType=$mediaType error=$errorMessage"
+                    )
+                }
 
                 // ensure title/poster are persisted for this key
                 local.upsert(
@@ -167,8 +189,11 @@ class TitleDetailsViewModel(
                 if (e is CancellationException) throw e
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
+                    isCastLoading = false,
+                    isSimilarLoading = false,
                     error = e.message ?: "Unable to load title details"
                 )
+                Log.e(TAG, "Load exception itemId=$itemId mediaType=$mediaType message=${e.message}", e)
             }
         }
     }
@@ -261,7 +286,7 @@ class TitleDetailsViewModel(
             _uiState.value = _uiState.value.copy(
                 isSubmittingCommunityReview = false,
                 communitySubmitStatus = if (result.isSuccess) {
-                    "Comment deleted. Rating kept."
+                    "Review deleted."
                 } else {
                     result.exceptionOrNull()?.message ?: "Unable to delete review."
                 }

@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import java.util.Locale
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,10 +39,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,8 +50,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -59,9 +60,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.piggylabs.nexscene.data.local.db.AppDataBase
 import com.piggylabs.nexscene.data.model.CastPerson
 import com.piggylabs.nexscene.data.model.CommunityReview
-import com.piggylabs.nexscene.data.local.db.AppDataBase
 import com.piggylabs.nexscene.data.model.ProviderInfoDto
 import com.piggylabs.nexscene.data.model.TitleCardDto
 import com.piggylabs.nexscene.data.model.TitleDetailsDto
@@ -71,6 +72,7 @@ import com.piggylabs.nexscene.navigation.components.TopBar
 import com.piggylabs.nexscene.ui.screens.home.limitChars
 import com.piggylabs.nexscene.ui.theme.AppColors
 import com.piggylabs.nexscene.ui.theme.appColors
+import java.util.Locale
 
 data class TitleItemDetails(
     val id: Int = 0,
@@ -133,7 +135,9 @@ fun TitleDetailsScreen(
                 titleDetails = uiState.details,
                 providers = uiState.providers,
                 castData = castData,
+                isCastLoading = uiState.isCastLoading,
                 similarData = similarData,
+                isSimilarLoading = uiState.isSimilarLoading,
                 trailerVideoId = uiState.trailerVideoId,
                 trailerUrl = uiState.trailerUrl,
                 communityAverageRating = uiState.communityAverageRating,
@@ -203,7 +207,9 @@ fun TitleDetailsScreenComponent(
     titleDetails: TitleDetailsDto?,
     providers: TitleWatchProvidersDto?,
     castData: List<CastPerson>,
+    isCastLoading: Boolean,
     similarData: List<TitleCardDto>,
+    isSimilarLoading: Boolean,
     trailerVideoId: String?,
     trailerUrl: String?,
     communityAverageRating: Double,
@@ -226,6 +232,7 @@ fun TitleDetailsScreenComponent(
     watchedKeys: Set<String>,
     showBadges: Boolean
 ) {
+    val context = LocalContext.current
     val listState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
 
@@ -279,11 +286,15 @@ fun TitleDetailsScreenComponent(
             }
 
             item {
-                CastSection(castData)
+                CastSection(
+                    castData = castData,
+                    isLoading = isCastLoading
+                )
             }
 
             item {
                 CommunityReviewsSection(
+                    context = context,
                     reviews = communityReviews,
                     selectedSort = communityReviewSort,
                     currentUserId = currentUserId,
@@ -301,6 +312,7 @@ fun TitleDetailsScreenComponent(
                 SimilarTitlesSection(
                     navController = navController,
                     similarData = similarData,
+                    isLoading = isSimilarLoading,
                     watchedKeys = watchedKeys,
                     showBadges = showBadges
                 )
@@ -607,6 +619,7 @@ private fun RatingPill(
 
 @Composable
 private fun CommunityReviewsSection(
+    context: Context,
     reviews: List<CommunityReview>,
     selectedSort: CommunityReviewSort,
     currentUserId: String,
@@ -618,15 +631,20 @@ private fun CommunityReviewsSection(
     onDeleteOwnReview: () -> Unit,
     onSortChanged: (CommunityReviewSort) -> Unit
 ) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     var comment by rememberSaveable { mutableStateOf("") }
     var isEditingOwnReview by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(submitStatus) {
         if (submitStatus == "Review posted.") {
+            val toastMessage = if (isEditingOwnReview) "Review updated" else "Review posted"
+            Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
             comment = ""
             isEditingOwnReview = false
         }
-        if (submitStatus == "Comment deleted.") {
+        if (submitStatus == "Review deleted.") {
+            Toast.makeText(context, "Review deleted", Toast.LENGTH_SHORT).show()
             comment = ""
             isEditingOwnReview = false
         }
@@ -673,9 +691,9 @@ private fun CommunityReviewsSection(
 
         Text(
             text = if (currentUserRating > 0) {
-                "Using your rating: $currentUserRating/10"
+                "Your rating: $currentUserRating/10"
             } else {
-                "Rate this title first using the /10 stars above, then post your review."
+                "Give Rating first, then post your review."
             },
             color = if (currentUserRating > 0) Color.White.copy(alpha = 0.86f) else Color(0xFFFFB3B3),
             fontSize = 12.sp
@@ -726,6 +744,7 @@ private fun CommunityReviewsSection(
                     .clip(RoundedCornerShape(20.dp))
                     .background(if (isSubmitting) Color(0xFF5B5B5B) else appColors().primary)
                     .clickable(enabled = !isSubmitting) {
+                        keyboardController?.hide()
                         onSubmit(currentUserRating, comment)
                     }
                     .padding(horizontal = 14.dp, vertical = 8.dp)
@@ -745,17 +764,20 @@ private fun CommunityReviewsSection(
             }
         }
 
-        if (!submitStatus.isNullOrBlank()) {
+        if (!submitStatus.isNullOrBlank() &&
+            submitStatus != "Review posted." &&
+            submitStatus != "Review deleted."
+        ) {
             Text(
                 submitStatus,
-                color = if (submitStatus == "Review posted.") Color(0xFF8EFFA0) else Color(0xFFFF9C9C),
+                color = Color(0xFFFF9C9C),
                 fontSize = 12.sp
             )
         }
 
         if (reviews.isEmpty()) {
             Text(
-                "No community reviews yet. Be the first one to share.",
+                "No reviews yet. Be the first one to share.",
                 color = Color.White.copy(alpha = 0.72f),
                 fontSize = 13.sp
             )
@@ -1234,7 +1256,10 @@ private fun ProviderLogo(provider: ProviderInfoDto) {
 }
 
 @Composable
-private fun CastSection(castData: List<CastPerson>) {
+private fun CastSection(
+    castData: List<CastPerson>,
+    isLoading: Boolean
+) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -1243,6 +1268,40 @@ private fun CastSection(castData: List<CastPerson>) {
         ) {
             Text("LEADING CAST", color = appColors().primary, fontWeight = FontWeight.Bold, fontSize = 28.sp, letterSpacing = 1.5.sp)
             Text("See All", color = Color.White.copy(alpha = 0.86f), fontSize = 14.sp)
+        }
+
+        if (isLoading && castData.isEmpty()) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                items(6) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(126.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(width = 90.dp, height = 12.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(width = 70.dp, height = 10.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                        )
+                    }
+                }
+            }
+            return
         }
 
         if (castData.isEmpty()) {
@@ -1292,6 +1351,7 @@ private fun CastSection(castData: List<CastPerson>) {
 private fun SimilarTitlesSection(
     navController: NavHostController,
     similarData: List<TitleCardDto>,
+    isLoading: Boolean,
     watchedKeys: Set<String>,
     showBadges: Boolean
 ) {
@@ -1304,6 +1364,32 @@ private fun SimilarTitlesSection(
             letterSpacing = 1.5.sp,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
+
+        if (isLoading && similarData.isEmpty()) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(6) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 150.dp, height = 220.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .border(0.1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(width = 110.dp, height = 12.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                        )
+                    }
+                }
+            }
+            return
+        }
 
         if (similarData.isEmpty()) {
             Text(

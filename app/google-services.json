@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "488196385649-b99vhglhps8qo9muiph8t7gdis7r3efa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.piggylabs.nexscene",
+            "certificate_hash": "576901e19ff609095236fe350b47bb3ac328869e"
+          }
+        },
+        {
           "client_id": "488196385649-q8m31v368l8g9hlvebon9krope7k6323.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

@@ -1,5 +1,6 @@
 package com.piggylabs.nexscene.ui.screens.explore
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.piggylabs.nexscene.data.api.MovieApiResponse
@@ -8,11 +9,10 @@ import com.piggylabs.nexscene.data.model.TitleCardDto
 import com.piggylabs.nexscene.data.repository.MovieRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
@@ -25,8 +25,9 @@ data class ExploreUiState(
 class ExploreViewModel : ViewModel() {
     private companion object {
         const val TARGET_ITEMS = 80
-        const val PAGES_TO_LOAD = 5
-        const val REQUEST_TIMEOUT_MS = 10_000L
+        const val PAGES_TO_LOAD = 3
+        const val REQUEST_TIMEOUT_MS = 45_000L
+        const val TAG = "EXPLORE_CLOUD"
     }
 
     private val repository = MovieRepository()
@@ -51,12 +52,17 @@ class ExploreViewModel : ViewModel() {
                     items = items,
                     error = if (items.isEmpty()) "No titles found." else null
                 )
+                Log.d(
+                    TAG,
+                    "Load success source=$normalizedSource media=$normalizedMedia items=${items.size}"
+                )
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = e.message ?: "Unable to load titles"
                 )
+                Log.e(TAG, "Load failed source=$source media=$mediaType message=${e.message}", e)
             }
         }
     }
@@ -138,18 +144,34 @@ class ExploreViewModel : ViewModel() {
 
     private suspend fun fetchMovieResponses(
         fetch: suspend (Int) -> MovieApiResponse
-    ): List<MovieApiResponse> = coroutineScope {
-        (1..PAGES_TO_LOAD).map { page ->
-            async { safeMovieCall { fetch(page) } }
-        }.map { it.await() }
+    ): List<MovieApiResponse> {
+        val responses = mutableListOf<MovieApiResponse>()
+        for (page in 1..PAGES_TO_LOAD) {
+            val firstTry = safeMovieCall { fetch(page) }
+            if (firstTry is MovieApiResponse.Success) {
+                responses += firstTry
+            } else {
+                delay(500)
+                responses += safeMovieCall { fetch(page) }
+            }
+        }
+        return responses
     }
 
     private suspend fun fetchTvResponses(
         fetch: suspend (Int) -> TvApiResponse
-    ): List<TvApiResponse> = coroutineScope {
-        (1..PAGES_TO_LOAD).map { page ->
-            async { safeTvCall { fetch(page) } }
-        }.map { it.await() }
+    ): List<TvApiResponse> {
+        val responses = mutableListOf<TvApiResponse>()
+        for (page in 1..PAGES_TO_LOAD) {
+            val firstTry = safeTvCall { fetch(page) }
+            if (firstTry is TvApiResponse.Success) {
+                responses += firstTry
+            } else {
+                delay(500)
+                responses += safeTvCall { fetch(page) }
+            }
+        }
+        return responses
     }
 
     private suspend fun safeMovieCall(block: suspend () -> MovieApiResponse): MovieApiResponse {

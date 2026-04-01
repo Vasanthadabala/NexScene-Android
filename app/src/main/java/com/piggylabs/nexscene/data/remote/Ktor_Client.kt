@@ -10,9 +10,9 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
 object KtorClientProvider {
-    private const val REQUEST_TIMEOUT_MS = 10_000L
-    private const val CONNECT_TIMEOUT_MS = 10_000L
-    private const val SOCKET_TIMEOUT_MS = 10_000L
+    private const val REQUEST_TIMEOUT_MS = 45_000L
+    private const val CONNECT_TIMEOUT_MS = 15_000L
+    private const val SOCKET_TIMEOUT_MS = 45_000L
 
     val json = Json {
         ignoreUnknownKeys = true
@@ -33,7 +33,7 @@ object KtorClientProvider {
                 socketTimeoutMillis = SOCKET_TIMEOUT_MS
             }
             install(Logging) {
-                level = LogLevel.BODY
+                level = LogLevel.HEADERS
             }
         }
     }
