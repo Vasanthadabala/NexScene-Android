@@ -81,10 +81,12 @@ dependencies {
 
     // Ktor Client Dependencies
     implementation("io.ktor:ktor-client-core:3.4.1")
-    implementation("io.ktor:ktor-client-android:3.4.1")
+    implementation("io.ktor:ktor-client-okhttp:3.4.1")
     implementation("io.ktor:ktor-client-content-negotiation:3.4.1")
     implementation("io.ktor:ktor-client-logging:3.4.1")
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.4.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
 
     // Image loading
     implementation("io.coil-kt:coil-compose:2.6.0")

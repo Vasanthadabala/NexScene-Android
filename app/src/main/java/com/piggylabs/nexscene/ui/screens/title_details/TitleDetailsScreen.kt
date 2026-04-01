@@ -637,6 +637,10 @@ private fun CommunityReviewsSection(
     var isEditingOwnReview by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(submitStatus) {
+        if (submitStatus == "Sign in to add your review.") {
+            Toast.makeText(context, submitStatus, Toast.LENGTH_SHORT).show()
+            onClearStatus()
+        }
         if (submitStatus == "Review posted.") {
             val toastMessage = if (isEditingOwnReview) "Review updated" else "Review posted"
             Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
@@ -765,6 +769,7 @@ private fun CommunityReviewsSection(
         }
 
         if (!submitStatus.isNullOrBlank() &&
+            submitStatus != "Sign in to add your review." &&
             submitStatus != "Review posted." &&
             submitStatus != "Review deleted."
         ) {
